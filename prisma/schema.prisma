@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                                         String         @id @default(uuid())
+  name                                       String
+  email                                      String         @unique
+  role                                       Role
+  walletAddress                              String?        @unique
+  createdAt                                  DateTime       @default(now())
+  AuditLog                                   AuditLog[]
+  Prescription_Prescription_doctorIdToUser   Prescription[] @relation("Prescription_doctorIdToUser")
+  Prescription_Prescription_patientIdToUser  Prescription[] @relation("Prescription_patientIdToUser")
+  Prescription_Prescription_pharmacyIdToUser Prescription[] @relation("Prescription_pharmacyIdToUser")
+
+  @@map("User")
+}
+
+model AuditLog {
+  id        String   @id
+  userId    String
+  role      Role
+  action    String
+  entityId  String
+  timestamp DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id])
+
+  @@index([entityId])
+  @@index([timestamp])
+  @@index([userId])
+}
+
+model Prescription {
+  id                                 String             @id
+  prescriptionId                     String             @unique
+  doctorId                           String
+  patientId                          String
+  ipfsHash                           String
+  txHash                             String?
+  status                             PrescriptionStatus @default(CREATED)
+  expiryDate                         DateTime
+  createdAt                          DateTime           @default(now())
+  pharmacyId                         String?
+  dispensedAt                        DateTime?
+  User_Prescription_doctorIdToUser   User               @relation("Prescription_doctorIdToUser", fields: [doctorId], references: [id])
+  User_Prescription_patientIdToUser  User               @relation("Prescription_patientIdToUser", fields: [patientId], references: [id])
+  User_Prescription_pharmacyIdToUser User?              @relation("Prescription_pharmacyIdToUser", fields: [pharmacyId], references: [id])
+  PrescriptionItem                   PrescriptionItem[]
+
+  @@index([doctorId])
+  @@index([patientId])
+  @@index([pharmacyId])
+  @@index([status])
+}
+
+model PrescriptionItem {
+  id             String       @id
+  prescriptionId String
+  medicineName   String
+  dosage         String
+  duration       String
+  quantity       Int
+  instructions   String?
+  Prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([prescriptionId])
+}
+
+enum Role {
+  CITIZEN
+  DOCTOR
+  PHARMACY
+  REGULATOR
+}
+
+enum PrescriptionStatus {
+  CREATED
+  VERIFIED
+  DISPENSED
+  EXPIRED
+}
