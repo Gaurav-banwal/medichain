@@ -18,7 +18,12 @@ const globalForPrisma = global as unknown as {
 
 // Instantiate the connection pool as a singleton to prevent connection leaks
 if (!globalForPrisma.pgPool) {
-  globalForPrisma.pgPool = new Pool({ connectionString });
+  const isProduction = process.env.NODE_ENV === 'production';
+  const needsSSL = connectionString.includes('db.prisma.io') || connectionString.includes('neon.tech') || isProduction;
+  globalForPrisma.pgPool = new Pool({
+    connectionString,
+    ssl: needsSSL ? { rejectUnauthorized: false } : undefined,
+  });
 }
 
 const pool = globalForPrisma.pgPool;
