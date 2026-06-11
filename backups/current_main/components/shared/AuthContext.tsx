@@ -141,10 +141,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Role-based redirection mapping
         const roleRedirects: Record<string, string> = {
-          CITIZEN: '/citizen',
-          DOCTOR: '/doctor',
-          PHARMACY: '/pharmacy',
-          REGULATOR: '/regulator',
+          CITIZEN: '/citizen/dashboard',
+          DOCTOR: '/doctor/dashboard',
+          PHARMACY: '/pharmacy/dashboard',
+          REGULATOR: '/regulator/dashboard',
         };
 
         const redirectPath = roleRedirects[data.user.role] || '/';
@@ -186,10 +186,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         addNotification(`Registration successful! Welcome, ${data.user.name}`, 'success');
 
         const roleRedirects: Record<string, string> = {
-          CITIZEN: '/citizen',
-          DOCTOR: '/doctor',
-          PHARMACY: '/pharmacy',
-          REGULATOR: '/regulator',
+          CITIZEN: '/citizen/dashboard',
+          DOCTOR: '/doctor/dashboard',
+          PHARMACY: '/pharmacy/dashboard',
+          REGULATOR: '/regulator/dashboard',
         };
 
         const redirectPath = roleRedirects[data.user.role] || '/';
