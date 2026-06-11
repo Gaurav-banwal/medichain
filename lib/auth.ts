@@ -1,7 +1,9 @@
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { JWTPayload } from '@/types/auth';
-import { DbUser, User } from '@/types/user';
+import { DbUser, User, UserRole } from '@/types/user';
+import { prisma } from '@/libs/prisma';
+import { Role } from '@prisma/client';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -40,62 +42,67 @@ export function verifyToken(token: string): JWTPayload {
 }
 
 // ==========================================
-// MOCK DATABASE & PLACEHOLDER QUERIES
+// DATABASE & REAL QUERIES
 // ==========================================
-// Since the user model schema cannot be modified to add a password, we utilize
-// a globally persistent in-memory user list to mock database queries.
-// This allows signup, login, and access-control checks to run correctly.
-const globalForUsers = global as unknown as {
-  usersDb?: DbUser[];
-};
-
-if (!globalForUsers.usersDb) {
-  globalForUsers.usersDb = [];
-}
-
-export const usersDb = globalForUsers.usersDb;
 
 /**
- * Placeholder: Finds a user in the database by their email.
+ * Finds a user in the database by their email.
  * @param email - User email.
  * @returns The database user record (including passwordHash) or null.
  */
 export async function findUserByEmail(email: string): Promise<DbUser | null> {
-  const user = usersDb.find((u) => u.email.toLowerCase() === email.toLowerCase());
-  return user || null;
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+  });
+  if (!user) return null;
+  return {
+    ...user,
+    role: user.role as UserRole,
+    passwordHash: user.passwordHash || '',
+  };
 }
 
 /**
- * Placeholder: Finds a user in the database by their ID.
+ * Finds a user in the database by their ID.
  * @param id - User ID.
  * @returns The user record (excluding passwordHash) or null.
  */
 export async function findUserById(id: string): Promise<User | null> {
-  const user = usersDb.find((u) => u.id === id);
+  const user = await prisma.user.findUnique({
+    where: { id },
+  });
   if (!user) return null;
   
   // Exclude passwordHash before returning
   const { passwordHash, ...userWithoutPassword } = user;
-  return userWithoutPassword;
+  return {
+    ...userWithoutPassword,
+    role: userWithoutPassword.role as UserRole,
+  };
 }
 
 /**
- * Placeholder: Creates a new user in the database.
+ * Creates a new user in the database.
  * @param userData - The registration data.
  * @returns The created user (excluding passwordHash).
  */
 export async function createUser(userData: Omit<DbUser, 'id' | 'createdAt'>): Promise<User> {
-  const newUser: DbUser = {
-    ...userData,
-    id: crypto.randomUUID(),
-    createdAt: new Date(),
-  };
-  
-  usersDb.push(newUser);
+  const user = await prisma.user.create({
+    data: {
+      name: userData.name,
+      email: userData.email.toLowerCase(),
+      role: userData.role as Role,
+      walletAddress: userData.walletAddress || null,
+      passwordHash: userData.passwordHash,
+    },
+  });
   
   // Exclude passwordHash before returning
-  const { passwordHash, ...userWithoutPassword } = newUser;
-  return userWithoutPassword;
+  const { passwordHash, ...userWithoutPassword } = user;
+  return {
+    ...userWithoutPassword,
+    role: userWithoutPassword.role as UserRole,
+  };
 }
 
 /**

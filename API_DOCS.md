@@ -33,6 +33,7 @@ Creates a new user record in the PostgreSQL database using Prisma and returns a 
 ```
 
 ### Success Response (`201 Created`)
+*   **Headers**: Sets `Set-Cookie: token=<JWT_TOKEN>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800`
 ```json
 {
   "message": "User registered successfully",
@@ -56,7 +57,7 @@ Creates a new user record in the PostgreSQL database using Prisma and returns a 
 
 ## 2. User Signup (Session Cookie-backed)
 
-Creates a new user record in the persistent in-memory database using a hashed password. Sets an `HttpOnly` JWT cookie for session management.
+Creates a new user record in the PostgreSQL database using a hashed password. Sets an `HttpOnly` JWT cookie for session management.
 
 *   **Endpoint**: `/api/auth/signup`
 *   **Method**: `POST`
@@ -106,7 +107,7 @@ Creates a new user record in the persistent in-memory database using a hashed pa
 
 ## 3. User Login
 
-Authenticates an existing user against the in-memory database using their email and password. On success, issues a signed session JWT in an `HttpOnly` cookie.
+Authenticates an existing user against the PostgreSQL database using their email and password. On success, issues a signed session JWT in an `HttpOnly` cookie.
 
 *   **Endpoint**: `/api/auth/login`
 *   **Method**: `POST`

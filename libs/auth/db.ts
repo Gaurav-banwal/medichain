@@ -30,6 +30,7 @@ export interface CreateUserInput {
   email: string;
   role: Role;
   walletAddress?: string | null;
+  passwordHash?: string | null;
 }
 
 /**
@@ -44,6 +45,7 @@ export async function createUser(userData: CreateUserInput): Promise<User> {
       email: userData.email.toLowerCase(),
       role: userData.role,
       walletAddress: userData.walletAddress,
+      passwordHash: userData.passwordHash,
     },
   });
 }
