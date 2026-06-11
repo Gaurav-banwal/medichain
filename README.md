@@ -173,35 +173,142 @@ Doctor Creates Prescription
 ```text
 medichain/
 
-├── app/
-│   ├── citizen/
-│   ├── doctor/
-│   ├── pharmacy/
-│   ├── regulator/
-│   └── api/
-│
-├── components/
-│   ├── dashboard/
-│   ├── blockchain/
-│   ├── prescription/
-│   └── shared/
+├── public/
+│   ├── images/
+│   ├── icons/
+│   └── logos/
 │
 ├── contracts/
-│   └── PrescriptionContract.sol
+│   ├── PrescriptionContract.sol
+│   └── deploy.ts
 │
 ├── prisma/
-│   └── schema.prisma
+│   ├── schema.prisma
+│   └── seed.ts
+│
+├── app/
+│
+│   ├── (auth)/
+│   │   ├── login/
+│   │   │   └── page.tsx
+│   │   └── callback/
+│   │       └── page.tsx
+│   │
+│   ├── citizen/
+│   │   ├── dashboard/
+│   │   ├── prescriptions/
+│   │   ├── medicine-history/
+│   │   ├── verify-medicine/
+│   │   ├── blockchain-records/
+│   │   └── profile/
+│   │
+│   ├── doctor/
+│   │   ├── dashboard/
+│   │   ├── create-prescription/
+│   │   ├── prescriptions/
+│   │   ├── patients/
+│   │   └── profile/
+│   │
+│   ├── pharmacy/
+│   │   ├── dashboard/
+│   │   ├── verify/
+│   │   ├── dispense/
+│   │   ├── inventory/
+│   │   └── profile/
+│   │
+│   ├── regulator/
+│   │   ├── dashboard/
+│   │   ├── audit-logs/
+│   │   ├── reports/
+│   │   ├── blockchain-explorer/
+│   │   └── investigations/
+│   │
+│   ├── api/
+│   │   ├── auth/
+│   │   ├── prescriptions/
+│   │   ├── blockchain/
+│   │   ├── pharmacy/
+│   │   ├── users/
+│   │   └── reports/
+│   │
+│   ├── layout.tsx
+│   ├── page.tsx
+│   └── globals.css
+│
+├── components/
+│
+│   ├── ui/
+│   │   ├── button.tsx
+│   │   ├── card.tsx
+│   │   ├── table.tsx
+│   │   └── dialog.tsx
+│   │
+│   ├── dashboard/
+│   │   ├── StatsCard.tsx
+│   │   ├── ActivityTimeline.tsx
+│   │   ├── BlockchainCard.tsx
+│   │   └── AnalyticsChart.tsx
+│   │
+│   ├── prescription/
+│   │   ├── PrescriptionForm.tsx
+│   │   ├── PrescriptionTable.tsx
+│   │   ├── PrescriptionDetails.tsx
+│   │   └── QRGenerator.tsx
+│   │
+│   ├── pharmacy/
+│   │   ├── QRScanner.tsx
+│   │   ├── VerificationCard.tsx
+│   │   └── DispenseForm.tsx
+│   │
+│   ├── blockchain/
+│   │   ├── TransactionCard.tsx
+│   │   ├── BlockchainExplorer.tsx
+│   │   └── WalletConnect.tsx
+│   │
+│   └── shared/
+│       ├── Sidebar.tsx
+│       ├── Navbar.tsx
+│       ├── Loader.tsx
+│       └── RoleGuard.tsx
 │
 ├── lib/
+│
+│   ├── prisma.ts
+│   ├── auth.ts
 │   ├── blockchain.ts
 │   ├── ipfs.ts
-│   ├── auth.ts
-│   └── prisma.ts
+│   ├── qr.ts
+│   ├── digilocker.ts
+│   └── utils.ts
 │
 ├── hooks/
+│   ├── useWallet.ts
+│   ├── usePrescription.ts
+│   └── useUser.ts
+│
 ├── store/
+│   ├── authStore.ts
+│   ├── prescriptionStore.ts
+│   └── dashboardStore.ts
+│
 ├── types/
-└── public/
+│   ├── user.ts
+│   ├── prescription.ts
+│   ├── blockchain.ts
+│   └── api.ts
+│
+├── constants/
+│   ├── roles.ts
+│   ├── routes.ts
+│   └── status.ts
+│
+├── middleware.ts
+│
+├── .env
+├── next.config.ts
+├── package.json
+├── tailwind.config.ts
+└── tsconfig.json
 ```
 
 ---

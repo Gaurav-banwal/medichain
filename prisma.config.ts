@@ -1,13 +1,15 @@
-import "dotenv/config";
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from 'prisma/config';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables from .env.local
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+dotenv.config(); // Fallback to .env
 
 export default defineConfig({
-  schema: "prisma/schema.prisma",
-  migrations: {
-    path: "prisma/migrations",
-    seed: "npx tsx prisma/seed.ts",
-  },
+  schema: './prisma/schema.prisma',
   datasource: {
-    url: env("DATABASE_URL"),
+    url: process.env.DATABASE_URL || '',
   },
 });
+
