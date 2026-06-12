@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { JWTPayload } from '@/types/auth';
 import { DbUser, User, UserRole } from '@/types/user';
 import { prisma } from '@/libs/prisma';
-import { Role } from '@prisma/client';
+import type { Role } from '@/generated/prisma/client';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
