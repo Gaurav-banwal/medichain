@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createUser, signToken } from '@/libs/auth';
+import { prisma } from '@/libs/prisma';
 
 export async function POST(request: Request) {
   try {
@@ -13,12 +14,57 @@ export async function POST(request: Request) {
       );
     }
 
-    const user = await createUser({
-      name,
-      email,
-      role,
-      walletAddress,
+    const normalizedEmail = email.toLowerCase();
+
+    // Check if user already exists by email
+    let user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
     });
+
+    if (user) {
+      // User already exists. If a walletAddress was provided, verify it isn't taken by someone else
+      if (walletAddress) {
+        const userWithWallet = await prisma.user.findUnique({
+          where: { walletAddress },
+        });
+        if (userWithWallet && userWithWallet.id !== user.id) {
+          return NextResponse.json(
+            { error: 'This wallet address is already linked to another user account' },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Update existing user details (name, role, walletAddress)
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          name,
+          role,
+          walletAddress: walletAddress || user.walletAddress,
+        },
+      });
+    } else {
+      // Create new user. Check if the walletAddress is already taken
+      if (walletAddress) {
+        const userWithWallet = await prisma.user.findUnique({
+          where: { walletAddress },
+        });
+        if (userWithWallet) {
+          return NextResponse.json(
+            { error: 'This wallet address is already linked to another user account' },
+            { status: 400 }
+          );
+        }
+      }
+
+      user = await createUser({
+        name,
+        email: normalizedEmail,
+        role,
+        walletAddress,
+      });
+    }
 
     const token = signToken({ userId: user.id, email: user.email, role: user.role }, '7d');
 
@@ -26,7 +72,7 @@ export async function POST(request: Request) {
       message: 'User registered successfully',
       user,
       token,
-    }, { status: 201 });
+    }, { status: 200 });
 
     response.cookies.set({
       name: 'token',

@@ -196,3 +196,220 @@ Terminates the current user session by clearing the `token` cookie.
 
 ### Error Responses
 *   **`500 Internal Server Error`**: For unexpected server-side errors.
+
+---
+
+## 6. Create Prescription
+
+Creates a new prescription record transactionally with its itemized medicines. This endpoint requires an active session cookie. It automatically identifies the prescribing doctor from the authenticated session (validating that the user has the `DOCTOR` role) and verifies that the recipient (`patientId`) has the `CITIZEN` role.
+
+*   **Endpoint**: `/api/prescriptions`
+*   **Method**: `POST`
+*   **Content-Type**: `application/json`
+*   **Cookies**: Requires `token=<JWT_TOKEN>` (Doctor session)
+
+### Request Body Fields
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `patientId` | `string` | **Yes** | ID of the citizen (patient) |
+| `ipfsHash` | `string` | **Yes** | Storage IPFS CID/hash containing metadata |
+| `expiryDate` | `string` | **Yes** | Expiration date of the prescription (ISO String) |
+| `items` | `array` | **Yes** | List of prescription item objects |
+| `prescriptionId` | `string` | No | Unique blockchain ID (auto-generated if omitted) |
+| `txHash` | `string` | No | Transaction hash of on-chain event |
+
+#### `items` Element Fields
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `medicineName` | `string` | **Yes** | Name of the medicine |
+| `dosage` | `string` | **Yes** | Dose format (e.g. `1-0-1` or `500mg`) |
+| `duration` | `string` | **Yes** | Duration of medicine usage (e.g. `5 Days`) |
+| `quantity` | `number` | **Yes** | Total quantity to dispense |
+| `instructions` | `string` | No | Additional usage instructions |
+
+### Request Example
+```json
+{
+  "patientId": "cmq7s6tsg0000n8qqzl0czzll",
+  "ipfsHash": "QmDemoPrescriptionHash123",
+  "expiryDate": "2026-12-12T12:00:00.000Z",
+  "items": [
+    {
+      "medicineName": "Paracetamol 500mg",
+      "dosage": "1-0-1",
+      "duration": "5 Days",
+      "quantity": 10,
+      "instructions": "Take after meals"
+    }
+  ]
+}
+```
+
+### Success Response (`201 Created`)
+```json
+{
+  "success": true,
+  "data": {
+    "id": "test-id-1781250588410",
+    "prescriptionId": "0xblockchain-rx-id-1781250588410",
+    "doctorId": "cmq7s6uk80001n8qqu9kc4pge", // Inferred from active doctor session
+    "patientId": "cmq7s6tsg0000n8qqzl0czzll",
+    "ipfsHash": "QmDemoPrescriptionHash123",
+    "txHash": null,
+    "status": "CREATED",
+    "expiryDate": "2026-12-12T12:00:00.000Z",
+    "createdAt": "2026-06-12T07:49:49.012Z",
+    "pharmacyId": null,
+    "dispensedAt": null,
+    "PrescriptionItem": [
+      {
+        "id": "test-item-1-1781250588410",
+        "prescriptionId": "test-id-1781250588410",
+        "medicineName": "Paracetamol 500mg",
+        "dosage": "1-0-1",
+        "duration": "5 Days",
+        "quantity": 10,
+        "instructions": "Take after meals"
+      }
+    ]
+  }
+}
+```
+
+### Error Responses
+*   **`401 Unauthorized`**: If there is no active session cookie.
+*   **`403 Forbidden`**: If the logged-in user is not a `DOCTOR`.
+*   **`400 Bad Request`**: If required fields are missing, patientId is not a CITIZEN, or item formats are invalid.
+*   **`500 Internal Server Error`**: For database transaction or other server-side errors.
+
+---
+
+## 7. Retrieve Prescriptions
+
+Retrieves a list of prescriptions. This endpoint is context-aware and automatically filters prescriptions based on the logged-in user's role:
+- If logged in as **`DOCTOR`**: Automatically returns only prescriptions given/created by this doctor (`doctorId = session.userId`).
+- If logged in as **`CITIZEN`**: Automatically returns only prescriptions possessed by this patient (`patientId = session.userId`).
+- If logged in as **`PHARMACY`** or **`REGULATOR`**: Can query all prescriptions, optionally using filtering query parameters.
+
+*   **Endpoint**: `/api/prescriptions`
+*   **Method**: `GET`
+*   **Cookies**: Requires `token=<JWT_TOKEN>`
+
+### Query Parameters (For PHARMACY / REGULATOR roles only)
+| Parameter | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `doctorId` | `string` | No | Filter by doctor ID |
+| `patientId` | `string` | No | Filter by citizen (patient) ID |
+| `pharmacyId` | `string` | No | Filter by pharmacy ID |
+| `status` | `string` | No | Filter by status (`CREATED`, `VERIFIED`, `DISPENSED`, `EXPIRED`) |
+
+### Success Response (`200 OK`)
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "test-id-1781250588410",
+      "prescriptionId": "0xblockchain-rx-id-1781250588410",
+      "doctorId": "cmq7s6uk80001n8qqu9kc4pge",
+      "patientId": "cmq7s6tsg0000n8qqzl0czzll",
+      "ipfsHash": "QmDemoPrescriptionHash123",
+      "txHash": null,
+      "status": "CREATED",
+      "expiryDate": "2026-12-12T12:00:00.000Z",
+      "createdAt": "2026-06-12T07:49:49.012Z",
+      "pharmacyId": null,
+      "dispensedAt": null,
+      "PrescriptionItem": [
+        {
+          "id": "test-item-1",
+          "medicineName": "Paracetamol",
+          "dosage": "1-0-1",
+          "duration": "5 Days",
+          "quantity": 10
+        }
+      ]
+    }
+  ],
+  "total": 1
+}
+```
+
+---
+
+## 8. Fetch Specific Prescription
+
+Fetches a single prescription by its database ID (`id`) or its blockchain identifier (`prescriptionId`).
+
+*   **Endpoint**: `/api/prescriptions/[id]`
+*   **Method**: `GET`
+
+### Success Response (`200 OK`)
+```json
+{
+  "success": true,
+  "data": {
+    "id": "test-id-1781250588410",
+    "prescriptionId": "0xblockchain-rx-id-1781250588410",
+    "doctorId": "cmq7s6uk80001n8qqu9kc4pge",
+    "patientId": "cmq7s6tsg0000n8qqzl0czzll",
+    "ipfsHash": "QmDemoPrescriptionHash123",
+    "status": "CREATED",
+    "PrescriptionItem": [...]
+  }
+}
+```
+
+### Error Responses
+*   **`404 Not Found`**: If the prescription ID does not exist in the database.
+
+---
+
+## 9. Update Prescription
+
+Updates a prescription's status, transaction hash, or links it to a pharmacy upon dispensing.
+
+*   **Endpoint**: `/api/prescriptions/[id]`
+*   **Method**: `PATCH`
+*   **Content-Type**: `application/json`
+
+### Request Body Fields
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `status` | `string` | No | New status (`CREATED`, `VERIFIED`, `DISPENSED`, `EXPIRED`) |
+| `txHash` | `string` | No | Blockchain transaction hash of the action |
+| `pharmacyId` | `string` | No | ID of the dispensing pharmacy |
+| `dispensedAt` | `string` | No | Dispensed timestamp (ISO String) |
+
+### Request Example
+```json
+{
+  "status": "DISPENSED",
+  "pharmacyId": "cmq7s6uzp0002n8qqjy3f9zvm",
+  "dispensedAt": "2026-06-12T07:49:50.031Z"
+}
+```
+
+### Success Response (`200 OK`)
+```json
+{
+  "success": true,
+  "data": {
+    "id": "test-id-1781250588410",
+    "prescriptionId": "0xblockchain-rx-id-1781250588410",
+    "doctorId": "cmq7s6uk80001n8qqu9kc4pge",
+    "patientId": "cmq7s6tsg0000n8qqzl0czzll",
+    "ipfsHash": "QmDemoPrescriptionHash123",
+    "txHash": null,
+    "status": "DISPENSED",
+    "pharmacyId": "cmq7s6uzp0002n8qqjy3f9zvm",
+    "dispensedAt": "2026-06-12T07:49:50.031Z",
+    "PrescriptionItem": [...]
+  }
+}
+```
+
+### Error Responses
+*   **`400 Bad Request`**: If the provided `pharmacyId` does not exist or does not belong to a user with the `PHARMACY` role.
+*   **`404 Not Found`**: If the prescription ID does not exist.
+

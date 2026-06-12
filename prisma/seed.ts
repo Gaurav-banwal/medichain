@@ -61,6 +61,7 @@ async function main() {
     where: { prescriptionId: "0xabc123demo00000000000000000000000000001" },
     update: {},
     create: {
+      id: "demo-prescription-id-1",
       prescriptionId: "0xabc123demo00000000000000000000000000001",
       doctorId: doctor.id,
       patientId: citizen.id,
@@ -68,9 +69,10 @@ async function main() {
       txHash: "0xdemo_tx_hash_prescription_created",
       status: "CREATED",
       expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      items: {
+      PrescriptionItem: {
         create: [
           {
+            id: "demo-item-id-1",
             medicineName: "Paracetamol 500mg",
             dosage: "500mg",
             duration: "5 days",
@@ -78,6 +80,7 @@ async function main() {
             instructions: "Take after meals, twice daily",
           },
           {
+            id: "demo-item-id-2",
             medicineName: "Amoxicillin 250mg",
             dosage: "250mg",
             duration: "7 days",
@@ -87,13 +90,14 @@ async function main() {
         ],
       },
     },
-    include: { items: true },
+    include: { PrescriptionItem: true },
   });
 
   // ─── AUDIT LOG ───────────────────────────────────────
 
   await prisma.auditLog.create({
     data: {
+      id: "demo-audit-log-id-1",
       userId: doctor.id,
       role: "DOCTOR",
       action: "PRESCRIPTION_CREATED",
@@ -109,7 +113,7 @@ async function main() {
   console.log(`  Pharmacy  → ${pharmacy.email}`);
   console.log(`  Regulator → ${regulator.email}`);
   console.log(`\nPrescription: ${prescription.prescriptionId}`);
-  console.log(`  Items: ${prescription.items.length}`);
+  console.log(`  Items: ${prescription.PrescriptionItem.length}`);
   console.log(`  txHash: ${prescription.txHash ?? "N/A"}`);
   console.log("\nSeed complete.");
 }
