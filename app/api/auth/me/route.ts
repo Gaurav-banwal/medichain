@@ -19,10 +19,11 @@ export async function GET() {
       },
       { status: 200 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Me endpoint error:', error);
+    const message = error instanceof Error ? error.message : 'An internal server error occurred';
     return NextResponse.json(
-      { error: error.message || 'An internal server error occurred' },
+      { error: message },
       { status: 500 }
     );
   }
