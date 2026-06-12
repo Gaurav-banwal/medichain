@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createUser, signToken } from '@/libs/auth';
-import { prisma } from '@/libs/prisma';
+import { createUser, signToken } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+
 
 export async function POST(request: Request) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     const normalizedEmail = email.toLowerCase();
 
     // Check if user already exists by email
-    let user = await prisma.user.findUnique({
+    let user: any = await prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
 

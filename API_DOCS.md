@@ -221,11 +221,14 @@ Creates a new prescription record transactionally with its itemized medicines. T
 #### `items` Element Fields
 | Field | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `medicineName` | `string` | **Yes** | Name of the medicine |
+| `medicineName` | `string` | **Yes** | Name of the medicine (must match a registered medicine in the system, validated case-insensitively) |
 | `dosage` | `string` | **Yes** | Dose format (e.g. `1-0-1` or `500mg`) |
 | `duration` | `string` | **Yes** | Duration of medicine usage (e.g. `5 Days`) |
 | `quantity` | `number` | **Yes** | Total quantity to dispense |
 | `instructions` | `string` | No | Additional usage instructions |
+| `dosageAmount` | `number` | No | Optional. Numeric dosage amount (auto-parsed if omitted) |
+| `durationDays` | `number` | No | Optional. Numeric duration in days (auto-parsed if omitted) |
+| `frequencyPerDay` | `number` | No | Optional. Numeric frequency per day (auto-parsed if omitted) |
 
 ### Request Example
 ```json
@@ -235,11 +238,14 @@ Creates a new prescription record transactionally with its itemized medicines. T
   "expiryDate": "2026-12-12T12:00:00.000Z",
   "items": [
     {
-      "medicineName": "Paracetamol 500mg",
+      "medicineName": "Paracetamol",
       "dosage": "1-0-1",
       "duration": "5 Days",
       "quantity": 10,
-      "instructions": "Take after meals"
+      "instructions": "Take after meals",
+      "dosageAmount": 1,
+      "durationDays": 5,
+      "frequencyPerDay": 2
     }
   ]
 }
@@ -265,11 +271,15 @@ Creates a new prescription record transactionally with its itemized medicines. T
       {
         "id": "test-item-1-1781250588410",
         "prescriptionId": "test-id-1781250588410",
-        "medicineName": "Paracetamol 500mg",
+        "instructions": "Take after meals",
+        "dosageAmount": 1,
+        "durationDays": 5,
+        "frequencyPerDay": 2,
+        "medicineId": "cmqarsq0q00007cqqbh3h9i0x",
+        "medicineName": "Paracetamol",
         "dosage": "1-0-1",
         "duration": "5 Days",
-        "quantity": 10,
-        "instructions": "Take after meals"
+        "quantity": 10
       }
     ]
   }
@@ -279,7 +289,7 @@ Creates a new prescription record transactionally with its itemized medicines. T
 ### Error Responses
 *   **`401 Unauthorized`**: If there is no active session cookie.
 *   **`403 Forbidden`**: If the logged-in user is not a `DOCTOR`.
-*   **`400 Bad Request`**: If required fields are missing, patientId is not a CITIZEN, or item formats are invalid.
+*   **`400 Bad Request`**: If required fields are missing, patientId is not a CITIZEN, item formats are invalid, or if any `medicineName` is not registered in the system.
 *   **`500 Internal Server Error`**: For database transaction or other server-side errors.
 
 ---
@@ -323,6 +333,12 @@ Retrieves a list of prescriptions. This endpoint is context-aware and automatica
       "PrescriptionItem": [
         {
           "id": "test-item-1",
+          "prescriptionId": "test-id-1781250588410",
+          "instructions": null,
+          "dosageAmount": 1,
+          "durationDays": 5,
+          "frequencyPerDay": 2,
+          "medicineId": "cmqarsq0q00007cqqbh3h9i0x",
           "medicineName": "Paracetamol",
           "dosage": "1-0-1",
           "duration": "5 Days",

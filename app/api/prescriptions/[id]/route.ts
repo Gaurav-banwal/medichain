@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/libs/prisma";
+import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(
@@ -102,13 +102,46 @@ export async function PATCH(
       );
     }
 
+    // Validate prescription state transitions
+    if (status === "DISPENSED" || pharmacyId || dispensedAt) {
+      if (user.role !== "PHARMACY") {
+        return NextResponse.json(
+          { success: false, error: "Forbidden: Only users with the PHARMACY role can dispense prescriptions" },
+          { status: 403 }
+        );
+      }
+
+      if (rx.status === "DISPENSED") {
+        return NextResponse.json(
+          { success: false, error: "Conflict: Prescription has already been dispensed" },
+          { status: 409 }
+        );
+      }
+
+      if (new Date(rx.expiryDate) < new Date()) {
+        return NextResponse.json(
+          { success: false, error: "Forbidden: Cannot dispense an expired prescription" },
+          { status: 403 }
+        );
+      }
+    }
+
     // Role-based Access Control checks for editing:
     // Doctors can only edit their own prescriptions
-    if (user.role === "DOCTOR" && rx.doctorId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden: You cannot modify this prescription" },
-        { status: 403 }
-      );
+    if (user.role === "DOCTOR") {
+      if (rx.doctorId !== user.id) {
+        return NextResponse.json(
+          { success: false, error: "Forbidden: You cannot modify this prescription" },
+          { status: 403 }
+        );
+      }
+      // Doctors cannot dispense or set pharmacy details
+      if (status === "DISPENSED" || pharmacyId || dispensedAt) {
+        return NextResponse.json(
+          { success: false, error: "Forbidden: Doctors cannot dispense prescriptions" },
+          { status: 403 }
+        );
+      }
     }
 
     // Citizens cannot edit prescriptions
@@ -123,21 +156,29 @@ export async function PATCH(
     const updateData: any = {};
     if (status) updateData.status = status;
     if (txHash !== undefined) updateData.txHash = txHash;
-    if (pharmacyId !== undefined) {
-      if (pharmacyId) {
-        // Check if pharmacyId user exists and is PHARMACY
-        const pharmacy = await prisma.user.findUnique({ where: { id: pharmacyId } });
-        if (!pharmacy || pharmacy.role !== "PHARMACY") {
-          return NextResponse.json(
-            { success: false, error: "Invalid pharmacyId or user is not a PHARMACY" },
-            { status: 400 }
-          );
+    
+    if (user.role === "PHARMACY") {
+      // Force pharmacyId to be the logged-in user's ID
+      updateData.pharmacyId = user.id;
+      // Force dispensedAt to be the current date if not specified, or parse specified date
+      updateData.dispensedAt = dispensedAt ? new Date(dispensedAt) : new Date();
+    } else {
+      if (pharmacyId !== undefined) {
+        if (pharmacyId) {
+          // Check if pharmacyId user exists and is PHARMACY
+          const pharmacy = await prisma.user.findUnique({ where: { id: pharmacyId } });
+          if (!pharmacy || pharmacy.role !== "PHARMACY") {
+            return NextResponse.json(
+              { success: false, error: "Invalid pharmacyId or user is not a PHARMACY" },
+              { status: 400 }
+            );
+          }
         }
+        updateData.pharmacyId = pharmacyId;
       }
-      updateData.pharmacyId = pharmacyId;
-    }
-    if (dispensedAt !== undefined) {
-      updateData.dispensedAt = dispensedAt ? new Date(dispensedAt) : null;
+      if (dispensedAt !== undefined) {
+        updateData.dispensedAt = dispensedAt ? new Date(dispensedAt) : null;
+      }
     }
 
     const updatedRx = await prisma.prescription.update({

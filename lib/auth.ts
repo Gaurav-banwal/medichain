@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { JWTPayload } from '@/types/auth';
 import { DbUser, User, UserRole } from '@/types/user';
-import { prisma } from '@/libs/prisma';
+import { prisma } from '@/lib/prisma';
 import type { Role } from '@/generated/prisma/client';
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -19,6 +19,17 @@ const SECRET_KEY = JWT_SECRET || 'medichain-fallback-super-secret-key-969727a786
 export function generateToken(payload: JWTPayload): string {
   return jwt.sign(payload, SECRET_KEY, { expiresIn: '7d' });
 }
+
+/**
+ * Signs a payload to create a JWT token with customizable expiration.
+ * @param payload - The data to embed in the token.
+ * @param expiresIn - Token expiration time (default: '1d').
+ * @returns Signed JWT string.
+ */
+export function signToken(payload: object, expiresIn: jwt.SignOptions['expiresIn'] = '1d'): string {
+  return jwt.sign(payload, SECRET_KEY, { expiresIn });
+}
+
 
 /**
  * Verifies a JWT token and returns the decoded payload.
@@ -81,19 +92,20 @@ export async function findUserById(id: string): Promise<User | null> {
   };
 }
 
-/**
- * Creates a new user in the database.
- * @param userData - The registration data.
- * @returns The created user (excluding passwordHash).
- */
-export async function createUser(userData: Omit<DbUser, 'id' | 'createdAt'>): Promise<User> {
+export async function createUser(userData: {
+  name: string;
+  email: string;
+  role: UserRole;
+  walletAddress?: string | null;
+  passwordHash?: string | null;
+}): Promise<User> {
   const user = await prisma.user.create({
     data: {
       name: userData.name,
       email: userData.email.toLowerCase(),
       role: userData.role as Role,
       walletAddress: userData.walletAddress || null,
-      passwordHash: userData.passwordHash,
+      passwordHash: userData.passwordHash || null,
     },
   });
   

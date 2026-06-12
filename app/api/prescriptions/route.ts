@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/libs/prisma";
+import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import crypto from "crypto";
 
@@ -54,6 +54,82 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate that all items exist in the Medicine table
+    const validatedItems: any[] = [];
+    for (const item of items) {
+      if (!item.medicineName || !item.dosage || !item.duration || typeof item.quantity !== "number") {
+        return NextResponse.json(
+          { success: false, error: "Invalid item format. Each item must have medicineName, dosage, duration, and quantity (number)" },
+          { status: 400 }
+        );
+      }
+
+      // Check if medicine exists in the database
+      const medicine = await prisma.medicine.findFirst({
+        where: {
+          name: {
+            equals: item.medicineName,
+            mode: "insensitive",
+          },
+        },
+      });
+
+      if (!medicine) {
+        return NextResponse.json(
+          { success: false, error: `Medicine "${item.medicineName}" is not registered in the system` },
+          { status: 400 }
+        );
+      }
+
+      // Extract / Parse durationDays fallback
+      let finalDurationDays = null;
+      if (typeof item.durationDays === "number") {
+        finalDurationDays = item.durationDays;
+      } else if (item.duration) {
+        const match = item.duration.match(/\d+/);
+        if (match) {
+          finalDurationDays = parseInt(match[0], 10);
+        }
+      }
+
+      // Extract / Parse frequencyPerDay fallback
+      let finalFrequencyPerDay = null;
+      if (typeof item.frequencyPerDay === "number") {
+        finalFrequencyPerDay = item.frequencyPerDay;
+      } else if (item.dosage) {
+        if (item.dosage.includes("-")) {
+          const parts = item.dosage.split("-").map(Number);
+          const sum = parts.reduce((a: number, b: number) => a + (isNaN(b) ? 0 : b), 0);
+          finalFrequencyPerDay = sum;
+        } else {
+          const match = item.dosage.match(/\d+/);
+          if (match) {
+            finalFrequencyPerDay = parseInt(match[0], 10);
+          }
+        }
+      }
+
+      // Extract / Parse dosageAmount fallback
+      let finalDosageAmount = null;
+      if (typeof item.dosageAmount === "number") {
+        finalDosageAmount = item.dosageAmount;
+      } else if (item.dosage) {
+        const match = item.dosage.match(/\d+(\.\d+)?/);
+        if (match) {
+          finalDosageAmount = parseFloat(match[0]);
+        }
+      }
+
+      validatedItems.push({
+        ...item,
+        medicineId: medicine.id,
+        medicineName: medicine.name, // Use canonical database casing
+        dosageAmount: finalDosageAmount,
+        durationDays: finalDurationDays,
+        frequencyPerDay: finalFrequencyPerDay,
+      });
+    }
+
     // Generate unique ID and prescriptionId if not provided
     const internalId = crypto.randomUUID();
     const finalPrescriptionId = prescriptionId || `0x${crypto.randomBytes(32).toString("hex")}`;
@@ -75,19 +151,20 @@ export async function POST(req: NextRequest) {
 
       // Create all items
       await Promise.all(
-        items.map((item: any) => {
-          if (!item.medicineName || !item.dosage || !item.duration || typeof item.quantity !== "number") {
-            throw new Error("Invalid item format. Each item must have medicineName, dosage, duration, and quantity (number)");
-          }
+        validatedItems.map((item: any) => {
           return tx.prescriptionItem.create({
             data: {
               id: crypto.randomUUID(),
               prescriptionId: rx.id,
+              medicineId: item.medicineId,
               medicineName: item.medicineName,
               dosage: item.dosage,
               duration: item.duration,
               quantity: item.quantity,
               instructions: item.instructions || null,
+              dosageAmount: item.dosageAmount,
+              durationDays: item.durationDays,
+              frequencyPerDay: item.frequencyPerDay,
             },
           });
         })
