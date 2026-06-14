@@ -1,11 +1,6 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../generated/prisma/client";
+import { prisma } from "../lib/prisma";
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
-});
-const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("Seeding MediChain demo data...\n");
@@ -119,10 +114,10 @@ async function main() {
     include: { PrescriptionItem: true },
   });
 
-  // ─── AUDIT LOG ───────────────────────────────────────
-
-  await prisma.auditLog.create({
-    data: {
+  await prisma.auditLog.upsert({
+    where: { id: "demo-audit-log-id-1" },
+    update: {},
+    create: {
       id: "demo-audit-log-id-1",
       userId: doctor.id,
       role: "DOCTOR",
@@ -130,6 +125,7 @@ async function main() {
       entityId: prescription.id,
     },
   });
+
 
   // ─── SUMMARY ─────────────────────────────────────────
 

@@ -1,93 +1,87 @@
-import { NextResponse } from 'next/server';
-import { OAuth2Client } from 'google-auth-library';
-import { findUserByEmail, createUser, generateToken } from '@/lib/auth';
-import { User, UserRole } from '@/types/user';
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { generateToken } from '@/lib/auth';
+import type { Role } from '@/generated/prisma/client';
 
-const client = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
-
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { idToken, role } = await request.json();
+    const body = await request.json();
+    const { credential } = body;
 
-    if (!idToken) {
-      return NextResponse.json(
-        { error: 'Google ID token is required' },
-        { status: 400 }
-      );
+    if (!credential) {
+      return NextResponse.json({ error: 'Credential token is required' }, { status: 400 });
     }
 
-    // 1. Verify Google ID token
-    const ticket = await client.verifyIdToken({
-      idToken,
-      audience: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+    let email = '';
+    let name = '';
+
+    // Mock login fallback for testing/development
+    if (credential === 'mock-google-credential') {
+      email = 'google-test-user@demo.io';
+      name = 'Google Test User';
+    } else {
+      // Call Google API to verify id_token
+      const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+      if (!res.ok) {
+        return NextResponse.json({ error: 'Invalid Google credential token' }, { status: 401 });
+      }
+      const data = await res.json();
+      email = data.email;
+      name = data.name;
+
+      if (!email) {
+        return NextResponse.json({ error: 'Email not provided in Google profile' }, { status: 400 });
+      }
+    }
+
+    // Lookup user in DB
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
     });
 
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email || !payload.name) {
-      return NextResponse.json(
-        { error: 'Invalid Google token payload' },
-        { status: 400 }
-      );
-    }
+    if (user) {
+      // Existing user -> Log them in by generating custom app token and setting cookie
+      const token = generateToken({
+        userId: user.id,
+        email: user.email,
+        role: user.role as any,
+      });
 
-    const { email, name } = payload;
+      const { passwordHash, ...userWithoutPassword } = user;
 
-    // 2. Check if the user exists
-    let user: User | null = await findUserByEmail(email);
+      const response = NextResponse.json({
+        message: 'Logged in successfully via Google',
+        isNewUser: false,
+        user: {
+          ...userWithoutPassword,
+          role: userWithoutPassword.role as string,
+        },
+      });
 
-    if (!user) {
-      // 3. Create the user with default or requested role
-      const assignedRole = (role as UserRole) || 'CITIZEN';
+      response.cookies.set({
+        name: 'token',
+        value: token,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
+      });
 
-      user = await createUser({
+      return response;
+    } else {
+      // New user -> Request role and details selection
+      return NextResponse.json({
+        message: 'Google authentication successful. Registration required.',
+        isNewUser: true,
+        email: email.toLowerCase(),
         name,
-        email,
-        role: assignedRole,
-        passwordHash: null,
       });
     }
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Failed to find or create user' },
-        { status: 500 }
-      );
-    }
-
-    // 4. Generate app JWT token
-    const token = generateToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    });
-
-    // 5. Exclude passwordHash (if any) from response
-    const { passwordHash, ...userWithoutPassword } = user as any;
-
-    // 6. Return response and set token in cookie
-    const response = NextResponse.json(
-      {
-        message: 'Authenticated successfully with Google',
-        user: userWithoutPassword,
-      },
-      { status: 200 }
-    );
-
-    response.cookies.set({
-      name: 'token',
-      value: token,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-    });
-
-    return response;
   } catch (error: any) {
     console.error('Google Auth Route Error:', error);
     return NextResponse.json(
-      { error: error.message || 'An error occurred during Google Sign-In verification' },
+      { error: error.message || 'Internal server error occurred' },
       { status: 500 }
     );
   }

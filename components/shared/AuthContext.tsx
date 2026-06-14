@@ -15,10 +15,13 @@ interface AuthContextType {
   toggleTheme: () => void;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
   signup: (name: string, email: string, password: string, role: UserRole, wallet: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: (credential: string) => Promise<{ success: boolean; isNewUser?: boolean; email?: string; name?: string; error?: string }>;
+  registerGoogleUser: (name: string, email: string, role: UserRole, wallet: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   addNotification: (message: string, type?: string) => void;
   markNotificationsAsRead: () => void;
 }
+
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -206,6 +209,95 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginWithGoogle = async (credential: string) => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        if (data.isNewUser) {
+          // New user -> return so UI can prompt for role selection
+          return { success: true, isNewUser: true, email: data.email, name: data.name };
+        }
+
+        // Existing user -> set local context states and navigate
+        setUser(data.user);
+        if (data.user.walletAddress) {
+          setWalletAddress(data.user.walletAddress);
+        }
+
+        addNotification(`Logged in successfully via Google as ${data.user.name}`, 'success');
+
+        const roleRedirects: Record<string, string> = {
+          CITIZEN: '/citizen',
+          DOCTOR: '/doctor',
+          PHARMACY: '/pharmacy',
+          REGULATOR: '/regulator',
+        };
+
+        const redirectPath = roleRedirects[data.user.role] || '/';
+        router.push(redirectPath);
+        router.refresh();
+        return { success: true, isNewUser: false };
+      } else {
+        return { success: false, error: data.error || 'Google Login failed' };
+      }
+    } catch (error: any) {
+      return { success: false, error: error.message || 'An error occurred during Google Auth' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const registerGoogleUser = async (name: string, email: string, role: UserRole, walletAddressVal: string) => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/auth/google/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          email,
+          role,
+          walletAddress: walletAddressVal || null,
+        }),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        setUser(data.user);
+        if (data.user.walletAddress) {
+          setWalletAddress(data.user.walletAddress);
+        }
+
+        addNotification(`Google registration completed successfully! Welcome, ${data.user.name}`, 'success');
+
+        const roleRedirects: Record<string, string> = {
+          CITIZEN: '/citizen',
+          DOCTOR: '/doctor',
+          PHARMACY: '/pharmacy',
+          REGULATOR: '/regulator',
+        };
+
+        const redirectPath = roleRedirects[data.user.role] || '/';
+        router.push(redirectPath);
+        router.refresh();
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || 'Google Registration failed' };
+      }
+    } catch (error: any) {
+      return { success: false, error: error.message || 'An error occurred during Google Registration' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = async () => {
     try {
       setLoading(true);
@@ -250,6 +342,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         toggleTheme,
         login,
         signup,
+        loginWithGoogle,
+        registerGoogleUser,
         logout,
         addNotification,
         markNotificationsAsRead,
@@ -257,6 +351,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     >
       {children}
     </AuthContext.Provider>
+
   );
 }
 
