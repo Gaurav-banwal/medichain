@@ -17,6 +17,16 @@ export async function POST(request: Request) {
 
     const normalizedEmail = email.toLowerCase();
 
+    if (role === 'REGULATOR') {
+      const adminEmail = process.env.REGULATOR_ADMIN_EMAIL || 'admin@medichain.gov';
+      if (normalizedEmail !== adminEmail.toLowerCase()) {
+        return NextResponse.json(
+          { error: 'Forbidden: Regulator accounts cannot be registered publicly.' },
+          { status: 403 }
+        );
+      }
+    }
+
     // Check if user already exists by email
     let user: any = await prisma.user.findUnique({
       where: { email: normalizedEmail },

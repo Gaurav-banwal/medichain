@@ -41,6 +41,16 @@ export async function POST(request: Request) {
       );
     }
 
+    if (role === 'REGULATOR') {
+      const adminEmail = process.env.REGULATOR_ADMIN_EMAIL || 'admin@medichain.gov';
+      if (email.toLowerCase().trim() !== adminEmail.toLowerCase().trim()) {
+        return NextResponse.json(
+          { error: 'Forbidden: Regulator accounts cannot be registered publicly.' },
+          { status: 403 }
+        );
+      }
+    }
+
     // 2. Uniqueness Check
     const existingUser = await findUserByEmail(email);
     if (existingUser) {

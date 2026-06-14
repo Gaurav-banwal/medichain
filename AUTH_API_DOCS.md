@@ -51,6 +51,7 @@ Creates a new user record in the PostgreSQL database using Prisma and returns a 
 
 ### Error Responses
 *   **`400 Bad Request`**: If required parameters (`name`, `email`, `role`) are missing.
+*   **`403 Forbidden`**: If the requested role is `REGULATOR` but the email does not match the configured `REGULATOR_ADMIN_EMAIL` (default: `admin@medichain.gov`).
 *   **`500 Internal Server Error`**: If the email/walletAddress is already registered, database is unreachable, etc.
 
 ---
@@ -101,6 +102,7 @@ Creates a new user record in the PostgreSQL database using a hashed password. Se
 
 ### Error Responses
 *   **`400 Bad Request`**: If fields are missing/invalid, password is under 6 characters, role is invalid, or email is already registered.
+*   **`403 Forbidden`**: If the requested role is `REGULATOR` but the email does not match the configured `REGULATOR_ADMIN_EMAIL` (default: `admin@medichain.gov`).
 *   **`500 Internal Server Error`**: For other internal processing failures.
 
 ---
