@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { useAuth } from './AuthContext';
 import NotificationPanel from './NotificationPanel';
-import WalletConnect from '../blockchain/WalletConnect';
 import { Sun, Moon, Bell, LogOut, User as UserIcon, ShieldCheck } from 'lucide-react';
 
 export default function Navbar({ title }: { title: string }) {
@@ -28,9 +27,6 @@ export default function Navbar({ title }: { title: string }) {
 
       {/* Action Tray */}
       <div className="flex items-center gap-4">
-        {/* Mock Blockchain Wallet Button */}
-        <WalletConnect />
-
         {/* Theme Control */}
         <button
           onClick={toggleTheme}

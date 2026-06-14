@@ -2,10 +2,10 @@
 
 import { useAuth } from '@/components/shared/AuthContext';
 import DashboardShell from '@/components/shared/DashboardShell';
-import { User, Mail, Shield, Wallet, Calendar, Edit3 } from 'lucide-react';
+import { User, Mail, Shield, Calendar, Edit3 } from 'lucide-react';
 
 export default function ProfilePage({ role }: { role: string }) {
-  const { user, walletAddress, connectWallet } = useAuth();
+  const { user } = useAuth();
 
   if (!user) return null;
 
@@ -57,17 +57,6 @@ export default function ProfilePage({ role }: { role: string }) {
                 <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                   {new Date(user.createdAt).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
                 </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3.5 bg-slate-500/5 border border-border/30 rounded-xl">
-              <Wallet className="w-4 h-4 text-primary shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase">Wallet</p>
-                {walletAddress ? (
-                  <p className="text-xs font-mono text-emerald-600 dark:text-emerald-400 truncate">{walletAddress.substring(0, 14)}...</p>
-                ) : (
-                  <button onClick={connectWallet} className="text-xs text-sky-500 font-semibold hover:text-sky-400 cursor-pointer">Connect wallet</button>
-                )}
               </div>
             </div>
           </div>

@@ -54,9 +54,11 @@ export default function LandingPage() {
             <a className="text-xs uppercase font-semibold tracking-wider text-[#c2c6d6] hover:text-[#adc6ff] transition-colors" href="#roles">Portal Access</a>
           </div>
 
-          <button className="bg-[#adc6ff] text-[#002e6a] text-xs uppercase font-semibold tracking-wider px-6 py-2 rounded-xl hover:opacity-90 active:scale-95 transition-all">
-            Connect Wallet
-          </button>
+          <Link href="/login">
+            <button className="bg-[#adc6ff] text-[#002e6a] text-xs uppercase font-semibold tracking-wider px-6 py-2 rounded-xl hover:opacity-90 active:scale-95 transition-all">
+              Sign In
+            </button>
+          </Link>
         </div>
       </nav>
 
@@ -78,18 +80,20 @@ export default function LandingPage() {
               </h1>
               
               <p className="text-base text-[#c2c6d6] max-w-lg leading-relaxed">
-                Leveraging DigiLocker, ABHA IDs, IPFS and Polygon blockchain to eliminate fake medicines and prescription fraud.
+                Leveraging ABHA IDs, secure databases, IPFS and Polygon blockchain to eliminate fake medicines and prescription fraud.
               </p>
               
               <div className="flex flex-wrap gap-4 mt-4">
-                <Link href="/citizen">
+                <Link href="/login">
                   <button className="bg-[#adc6ff] text-[#002e6a] px-8 py-4 rounded-xl font-semibold transition-all hover:scale-[1.02] shadow-lg shadow-blue-500/20">
-                    Login via DigiLocker
+                    Sign In
                   </button>
                 </Link>
-                <button className="border border-[#5de6ff]/50 text-[#5de6ff] bg-[#1c1b1b]/50 backdrop-blur-sm px-8 py-4 rounded-xl font-semibold transition-all hover:bg-[#5de6ff]/10 hover:border-[#5de6ff]">
-                  Connect MetaMask
-                </button>
+                <Link href="/signup">
+                  <button className="border border-[#5de6ff]/50 text-[#5de6ff] bg-[#1c1b1b]/50 backdrop-blur-sm px-8 py-4 rounded-xl font-semibold transition-all hover:bg-[#5de6ff]/10 hover:border-[#5de6ff]">
+                    Create Account
+                  </button>
+                </Link>
               </div>
               
               <div className="flex items-center gap-6 mt-8 opacity-60">

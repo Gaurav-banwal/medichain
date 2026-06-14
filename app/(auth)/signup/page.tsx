@@ -19,14 +19,13 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('CITIZEN');
-  const [walletAddress, setWalletAddress] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const result = await signup(name, email, password, role, walletAddress);
+    const result = await signup(name, email, password, role, '');
     if (!result.success) {
       setError(result.error || 'Registration failed. Please try again.');
     }
@@ -117,20 +116,6 @@ export default function SignupPage() {
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Wallet (Optional) */}
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-              Wallet Address <span className="normal-case text-slate-600 font-medium">(optional)</span>
-            </label>
-            <input
-              type="text"
-              placeholder="0x71C4B4E..."
-              value={walletAddress}
-              onChange={(e) => setWalletAddress(e.target.value)}
-              className="h-10 w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 text-sm font-mono text-white placeholder-slate-500 outline-none focus:border-sky-500 transition-colors"
-            />
           </div>
 
           <button

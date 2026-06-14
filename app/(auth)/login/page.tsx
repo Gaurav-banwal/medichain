@@ -20,7 +20,6 @@ export default function LoginPage() {
   const [googleEmail, setGoogleEmail] = useState('');
   const [googleName, setGoogleName] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>('CITIZEN');
-  const [walletAddress, setWalletAddress] = useState('');
   const [googleError, setGoogleError] = useState('');
 
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -39,16 +38,24 @@ export default function LoginPage() {
           callback: handleGoogleCredentialResponse,
         });
 
-        (window as any).google.accounts.id.renderButton(
-          document.getElementById('google-signin-btn') as HTMLElement,
-          {
-            theme: 'outline',
-            size: 'large',
-            width: 382, // exact width for container
-            text: 'signin_with',
-            shape: 'rectangular',
-          }
-        );
+        const container = document.getElementById('google-signin-btn');
+        if (container) {
+          // Get dynamic container width or fallback to 352px. Keep it within Google's 200px-400px limits.
+          let width = container.offsetWidth || 352;
+          if (width < 200) width = 200;
+          if (width > 400) width = 400;
+
+          (window as any).google.accounts.id.renderButton(
+            container,
+            {
+              theme: 'outline',
+              size: 'large',
+              width: width,
+              text: 'signin_with',
+              shape: 'rectangular',
+            }
+          );
+        }
       }
     } catch (err) {
       console.error('Error rendering Google Sign-In button:', err);
@@ -60,6 +67,23 @@ export default function LoginPage() {
     if (typeof window !== 'undefined' && (window as any).google) {
       initGoogleSignIn();
     }
+
+    // Listen for resize to adjust button width dynamically
+    let resizeTimer: NodeJS.Timeout;
+    const handleResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (typeof window !== 'undefined' && (window as any).google) {
+          initGoogleSignIn();
+        }
+      }, 200);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimer);
+    };
   }, []);
 
 
@@ -96,7 +120,7 @@ export default function LoginPage() {
   const handleGoogleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setGoogleError('');
-    const result = await registerGoogleUser(googleName, googleEmail, selectedRole, walletAddress);
+    const result = await registerGoogleUser(googleName, googleEmail, selectedRole, '');
     if (result.success) {
       setGoogleRegisterOpen(false);
     } else {
@@ -300,19 +324,6 @@ export default function LoginPage() {
                 </select>
               </div>
 
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                  Wallet Address (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="0x71C4B4E839878a7..."
-                  value={walletAddress}
-                  onChange={(e) => setWalletAddress(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-4 text-sm text-white placeholder-slate-500 outline-none focus:border-sky-500 transition-colors"
-                />
-              </div>
-
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -323,9 +334,11 @@ export default function LoginPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 h-11 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 text-sm font-bold text-white shadow-lg shadow-sky-500/20 hover:from-sky-400 hover:to-sky-500 transition-all cursor-pointer"
+                  disabled={loading}
+                  className="flex-1 h-11 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 text-sm font-bold text-white shadow-lg shadow-sky-500/20 hover:from-sky-400 hover:to-sky-500 transition-all disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  Complete
+                  <ShieldCheck className="w-4 h-4" />
+                  {loading ? 'Completing...' : 'Complete Securely'}
                 </button>
               </div>
             </form>

@@ -114,7 +114,7 @@ export default function CitizenDashboard() {
               </div>
               <h2 className="text-lg font-bold text-white">{citizenProfile.name}</h2>
               <span className="text-xs text-emerald-400 flex items-center gap-1 mt-1 font-medium bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                <ShieldCheck className="w-3.5 h-3.5" /> DigiLocker Verified
+                <ShieldCheck className="w-3.5 h-3.5" /> ABHA Verified
               </span>
             </div>
 
@@ -122,14 +122,6 @@ export default function CitizenDashboard() {
               <div>
                 <span className="text-[#c2c6d6] block text-[10px] uppercase font-sans tracking-wider mb-0.5">ABHA ID Number</span>
                 <span className="text-white bg-white/5 px-2 py-1 rounded block border border-white/5">{citizenProfile.abhaId}</span>
-              </div>
-              <div>
-                <span className="text-[#c2c6d6] block text-[10px] uppercase font-sans tracking-wider mb-0.5">DigiLocker Doc Anchor</span>
-                <span className="text-white bg-white/5 px-2 py-1 rounded block border border-white/5">{citizenProfile.digilockerId}</span>
-              </div>
-              <div>
-                <span className="text-[#c2c6d6] block text-[10px] uppercase font-sans tracking-wider mb-0.5">Connected Blockchain Wallet</span>
-                <span className="text-[#5de6ff] bg-white/5 px-2 py-1 rounded block border border-white/5 truncate">{citizenProfile.walletAddress}</span>
               </div>
             </div>
           </div>
