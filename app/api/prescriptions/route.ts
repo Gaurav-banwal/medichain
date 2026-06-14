@@ -228,7 +228,17 @@ export async function GET(req: NextRequest) {
     const prescriptions = await prisma.prescription.findMany({
       where: filters,
       include: {
-        PrescriptionItem: true,
+        User_Prescription_doctorIdToUser: {
+          select: { name: true, email: true }
+        },
+        User_Prescription_patientIdToUser: {
+          select: { name: true, email: true }
+        },
+        PrescriptionItem: {
+          include: {
+            Medicine: true
+          }
+        },
       },
       orderBy: { createdAt: "desc" },
     });

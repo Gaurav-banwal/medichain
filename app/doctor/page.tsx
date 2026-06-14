@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useAuth } from '@/components/shared/AuthContext';
 import { 
   ShieldCheck, 
   Search, 
@@ -21,21 +22,68 @@ import {
   Menu
 } from 'lucide-react';
 
-const INITIAL_PATIENTS = [
-  { name: "Aarav Sharma", abhaId: "91-2234-5678-9012", age: 34, lastVisit: "Oct 22, 2024", initials: "AS", color: "bg-blue-500/20 text-blue-400" },
-  { name: "Priya Patel", abhaId: "91-8876-5432-1098", age: 29, lastVisit: "Oct 21, 2024", initials: "PP", color: "bg-teal-500/20 text-teal-400" },
-  { name: "Vikram Singh", abhaId: "91-5543-2210-9876", age: 45, lastVisit: "Oct 20, 2024", initials: "VS", color: "bg-slate-500/20 text-slate-400" }
-];
-
 export default function DoctorDashboard() {
-  const [patients] = useState(INITIAL_PATIENTS);
+  const { user, logout } = useAuth();
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [patients, setPatients] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    async function loadDoctorData() {
+      try {
+        const res = await fetch('/api/prescriptions');
+        if (res.ok) {
+          const result = await res.json();
+          const rxList = result.data || [];
+          setPrescriptions(rxList);
+
+          // Extract unique patients from prescriptions
+          const uniquePatientsMap = new Map();
+          rxList.forEach((rx: any) => {
+            const patient = rx.User_Prescription_patientIdToUser;
+            if (patient && !uniquePatientsMap.has(rx.patientId)) {
+              uniquePatientsMap.set(rx.patientId, {
+                id: rx.patientId,
+                name: patient.name,
+                email: patient.email,
+                abhaId: '91-2234-5678-9012', // demo fallback identifier
+                age: 34,
+                lastVisit: new Date(rx.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+                initials: patient.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2),
+                color: "bg-blue-500/20 text-blue-400"
+              });
+            }
+          });
+          setPatients(Array.from(uniquePatientsMap.values()));
+        }
+      } catch (err) {
+        console.error('Failed to load doctor data', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDoctorData();
+  }, []);
 
   const filteredPatients = patients.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     p.abhaId.includes(searchQuery)
   );
+
+  const activeRxCount = prescriptions.filter(rx => rx.status === 'CREATED' || rx.status === 'VERIFIED').length;
+
+  if (loading) {
+    return (
+      <div className="bg-[#050505] text-[#e5e2e1] min-h-screen flex items-center justify-center font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-[#adc6ff] border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xs text-slate-400">Loading doctor panel...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#050505] text-[#e5e2e1] min-h-screen font-sans antialiased selection:bg-blue-500/30">
@@ -70,8 +118,8 @@ export default function DoctorDashboard() {
           
           <div className="flex items-center gap-3 p-1 rounded-full hover:bg-white/5 transition-all">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold leading-none text-white">Dr. Sarah Chen</p>
-              <p className="text-xs text-[#8c909f] leading-tight mt-1">Chief Oncologist</p>
+              <p className="text-sm font-semibold leading-none text-white">{user?.name || 'Dr. Practitioner'}</p>
+              <p className="text-xs text-[#8c909f] leading-tight mt-1">Medical Node Operator</p>
             </div>
             <div className="relative w-9 h-9 rounded-full overflow-hidden border border-[#adc6ff]/20 bg-slate-800">
               <div className="w-full h-full bg-gradient-to-tr from-blue-600 to-teal-500 opacity-80" />
@@ -132,7 +180,7 @@ export default function DoctorDashboard() {
           <header className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
             <div>
               <h1 className="text-2xl font-bold text-white tracking-tight">Doctor Workspace</h1>
-              <p className="text-sm text-[#c2c6d6] mt-0.5">Welcome back, Dr. Chen. Your network validator is synced.</p>
+              <p className="text-sm text-[#c2c6d6] mt-0.5">Welcome back, {user?.name || 'Dr. Practitioner'}. Your network validator is synced.</p>
             </div>
             <Link href="/doctor/create">
               <button className="inline-flex items-center justify-center gap-2 bg-[#adc6ff] text-[#002e6a] font-bold px-6 py-3 rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-blue-500/10">
@@ -149,19 +197,19 @@ export default function DoctorDashboard() {
               <div className="bg-[#131313] border border-white/10 p-6 rounded-xl flex flex-col gap-2 relative overflow-hidden">
                 <span className="text-[#c2c6d6] text-xs font-medium">Patients Treated</span>
                 <div className="flex items-end justify-between">
-                  <span className="text-3xl font-bold text-white tracking-tight">1,284</span>
-                  <span className="text-[#5de6ff] font-mono text-xs mb-1 font-semibold">+12%</span>
+                  <span className="text-3xl font-bold text-white tracking-tight">{patients.length}</span>
+                  <span className="text-[#5de6ff] font-mono text-xs mb-1 font-semibold">+100%</span>
                 </div>
                 <div className="w-full bg-white/5 h-1 rounded-full mt-3">
-                  <div className="bg-[#adc6ff] h-full rounded-full" style={{ width: '75%' }}></div>
+                  <div className="bg-[#adc6ff] h-full rounded-full" style={{ width: '100%' }}></div>
                 </div>
               </div>
 
               <div className="bg-[#131313] border border-white/10 p-6 rounded-xl flex flex-col gap-2 relative overflow-hidden">
                 <span className="text-[#c2c6d6] text-xs font-medium">Active Prescriptions</span>
-                <span className="text-3xl font-bold text-white tracking-tight">456</span>
+                <span className="text-3xl font-bold text-white tracking-tight">{activeRxCount}</span>
                 <div className="w-full bg-white/5 h-1 rounded-full mt-3">
-                  <div className="bg-[#5de6ff] h-full rounded-full" style={{ width: '45%' }}></div>
+                  <div className="bg-[#5de6ff] h-full rounded-full" style={{ width: `${Math.min(100, Math.max(10, (activeRxCount / (prescriptions.length || 1)) * 100))}%` }}></div>
                 </div>
               </div>
 
@@ -185,21 +233,19 @@ export default function DoctorDashboard() {
                 <Rss className="text-[#adc6ff] h-4 w-4" /> Activity Feed
               </h3>
               <div className="space-y-4 relative border-l border-white/10 pl-4 ml-1">
-                
-                <div className="relative">
-                  <div className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 bg-[#adc6ff] rounded-full border border-[#131313]"></div>
-                  <p className="text-xs font-medium text-white">Amoxicillin token issued</p>
-                  <p className="text-[11px] text-[#c2c6d6]">to Aarav Sharma</p>
-                  <span className="text-[9px] font-mono text-[#8c909f] uppercase tracking-wider block mt-0.5">2 mins ago</span>
-                </div>
-
-                <div className="relative">
-                  <div className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 bg-[#5de6ff] rounded-full border border-[#131313]"></div>
-                  <p className="text-xs font-medium text-white">Metformin payload stored</p>
-                  <p className="text-[11px] text-[#c2c6d6]">to Priya Patel</p>
-                  <span className="text-[9px] font-mono text-[#8c909f] uppercase tracking-wider block mt-0.5">1 hour ago</span>
-                </div>
-
+                {prescriptions.slice(0, 2).map((rx, idx) => {
+                  const drugName = rx.PrescriptionItem?.[0]?.Medicine?.name || 'Prescription';
+                  return (
+                    <div key={rx.id} className="relative">
+                      <div className={`absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full border border-[#131313] ${idx === 0 ? 'bg-[#adc6ff]' : 'bg-[#5de6ff]'}`}></div>
+                      <p className="text-xs font-medium text-white">{drugName} issued</p>
+                      <p className="text-[11px] text-[#c2c6d6]">to {rx.User_Prescription_patientIdToUser?.name || 'Patient'}</p>
+                      <span className="text-[9px] font-mono text-[#8c909f] uppercase tracking-wider block mt-0.5">
+                        {new Date(rx.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </aside>
 

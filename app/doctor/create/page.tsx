@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/components/shared/AuthContext';
 import { 
   ShieldCheck, 
   LayoutDashboard, 
@@ -28,47 +30,155 @@ interface MedicineItem {
   dosage: [number, number, number];
   duration: string;
   daysLabel: string;
-  quantity: string;
+  quantity: number;
 }
 
-const INITIAL_MEDICINES: MedicineItem[] = [
-  {
-    id: "med_1",
-    name: "Amoxicillin 500mg",
-    category: "Antibiotic - Take after meals",
-    dosage: [1, 0, 1],
-    duration: "5 Days",
-    daysLabel: "M - T - W - T - F",
-    quantity: "15 Tabs"
-  }
-];
-
 export default function PrescriptionWizard() {
-  const [medicines, setMedicines] = useState<MedicineItem[]>(INITIAL_MEDICINES);
-  const [abhaQuery, setAbhaQuery] = useState("91-2234-5678-9012");
-  const [isFetched, setIsFetched] = useState(true);
+  const router = useRouter();
+  const { user } = useAuth();
   
-  const [newName, setNewName] = useState("");
-  const [newQty, setNewQty] = useState("10 Tabs");
+  const [patientsList, setPatientsList] = useState<any[]>([]);
+  const [medicinesList, setMedicinesList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Selections
+  const [selectedPatientId, setSelectedPatientId] = useState("");
+  const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
+  
+  // Regimen builder
+  const [prescribedMedicines, setPrescribedMedicines] = useState<MedicineItem[]>([]);
+  const [selectedMedicineName, setSelectedMedicineName] = useState("");
+  const [dosageMorning, setDosageMorning] = useState(1);
+  const [dosageNoon, setDosageNoon] = useState(0);
+  const [dosageEvening, setDosageEvening] = useState(1);
+  const [durationDays, setDurationDays] = useState(7);
+  const [quantity, setQuantity] = useState(14);
+
+  // Meta states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+
+  useEffect(() => {
+    async function loadLookupData() {
+      try {
+        const [patientsRes, medicinesRes] = await Promise.all([
+          fetch('/api/users?role=CITIZEN'),
+          fetch('/api/medicines?includeBanned=false')
+        ]);
+
+        if (patientsRes.ok && medicinesRes.ok) {
+          const patientsData = await patientsRes.json();
+          const medicinesData = await medicinesRes.json();
+          setPatientsList(patientsData.data || []);
+          setMedicinesList(medicinesData.data || []);
+        }
+      } catch (err) {
+        console.error('Failed to load lookup data', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadLookupData();
+  }, []);
+
+  // Update selected patient profile details when ID changes
+  useEffect(() => {
+    const found = patientsList.find(p => p.id === selectedPatientId);
+    setSelectedPatient(found || null);
+  }, [selectedPatientId, patientsList]);
 
   const addMedicine = () => {
-    if (!newName) return;
+    if (!selectedMedicineName) return;
+    
+    // Check if already added
+    if (prescribedMedicines.some(m => m.name === selectedMedicineName)) {
+      alert("Medicine already added to this prescription.");
+      return;
+    }
+
+    const medInfo = medicinesList.find(m => m.name === selectedMedicineName);
+
     const newItem: MedicineItem = {
       id: `med_${Date.now()}`,
-      name: newName,
-      category: "Prescribed Therapy Dosage",
-      dosage: [1, 1, 1],
-      duration: "7 Days",
+      name: selectedMedicineName,
+      category: medInfo?.MedicineRegulation?.scheduleClass || "Prescribed Therapy",
+      dosage: [dosageMorning, dosageNoon, dosageEvening],
+      duration: `${durationDays} Days`,
       daysLabel: "Daily Regimen",
-      quantity: newQty
+      quantity: quantity
     };
-    setMedicines([...medicines, newItem]);
-    setNewName("");
+
+    setPrescribedMedicines([...prescribedMedicines, newItem]);
+    setSelectedMedicineName("");
   };
 
   const deleteMedicine = (id: string) => {
-    setMedicines(medicines.filter(m => m.id !== id));
+    setPrescribedMedicines(prescribedMedicines.filter(m => m.id !== id));
   };
+
+  const handleFinalize = async () => {
+    if (!selectedPatient) {
+      setErrorMsg("Please select a valid patient first.");
+      return;
+    }
+    if (prescribedMedicines.length === 0) {
+      setErrorMsg("Prescription must contain at least one medicine item.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    try {
+      // Mock unique IPFS hash and transaction hash for the demo on-chain validation
+      const ipfsHash = `Qm${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+      const txHash = `0x${Math.random().toString(16).substring(2, 10)}${Math.random().toString(16).substring(2, 10)}`;
+      
+      const res = await fetch('/api/prescriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId: selectedPatient.id,
+          ipfsHash,
+          txHash,
+          expiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(), // 6 months
+          items: prescribedMedicines.map(m => ({
+            medicineName: m.name,
+            dosage: m.dosage.join('-'),
+            duration: m.duration,
+            quantity: m.quantity
+          }))
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setSuccessMsg("Success: Prescription registered on-chain!");
+        setTimeout(() => {
+          router.push('/doctor');
+        }, 1500);
+      } else {
+        setErrorMsg(data.error || "Failed to create prescription.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "A network error occurred.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-[#050505] text-[#e5e2e1] min-h-screen flex items-center justify-center font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-[#adc6ff] border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xs text-slate-400">Loading prescription builder...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#050505] text-[#e5e2e1] min-h-screen font-sans antialiased overflow-x-hidden selection:bg-blue-500/30">
@@ -77,7 +187,7 @@ export default function PrescriptionWizard() {
       <aside className="h-full w-64 fixed left-0 top-0 border-r border-white/5 flex flex-col py-4 z-50 bg-[#050505]">
         <div className="px-6 mb-10">
           <span className="text-xl font-bold text-[#adc6ff] tracking-tight block">MediChain</span>
-          <span className="text-[10px] text-[#8c909f] uppercase font-mono tracking-widest block mt-0.5">Verified Node 042</span>
+          <span className="text-[10px] text-[#8c909f] uppercase font-mono tracking-widest block mt-0.5">Verified Node</span>
         </div>
         
         <nav className="flex-1 space-y-2 px-4">
@@ -89,26 +199,14 @@ export default function PrescriptionWizard() {
             <FileText className="h-4 w-4" />
             <span>Prescriptions</span>
           </Link>
-          <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#8c909f] hover:bg-white/5 transition-colors text-sm font-medium">
-            <Users className="h-4 w-4" />
-            <span>Patient Records</span>
-          </a>
-          <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#8c909f] hover:bg-white/5 transition-colors text-sm font-medium">
-            <Wallet className="h-4 w-4" />
-            <span>Blockchain Registry</span>
-          </a>
-          <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-lg text-[#8c909f] hover:bg-white/5 transition-colors text-sm font-medium">
-            <Shield className="h-4 w-4" />
-            <span>Security Settings</span>
-          </a>
         </nav>
         
         <div className="px-4 mt-auto">
           <div className="bg-slate-950/60 border border-white/5 p-4 rounded-xl flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 opacity-80" />
             <div>
-              <p className="text-xs font-bold text-white">Dr. Sarah Chen</p>
-              <p className="text-[10px] text-[#8c909f]">Cardiology Unit</p>
+              <p className="text-xs font-bold text-white">{user?.name || 'Dr. Practitioner'}</p>
+              <p className="text-[10px] text-[#8c909f]">Medical Hub Operator</p>
             </div>
           </div>
         </div>
@@ -132,13 +230,6 @@ export default function PrescriptionWizard() {
           <div className="flex items-center gap-3">
             <button className="text-[#8c909f] hover:text-[#5de6ff] transition-colors"><Bell className="w-4 h-4" /></button>
             <button className="text-[#8c909f] hover:text-[#5de6ff] transition-colors"><RefreshCw className="w-4 h-4" /></button>
-            <button className="text-[#8c909f] hover:text-[#5de6ff] transition-colors"><Settings className="w-4 h-4" /></button>
-            <button 
-              onClick={() => alert("Broadcasting raw transaction verification onto Amoy chain state...")}
-              className="bg-[#adc6ff] text-[#00285d] px-4 py-1.5 rounded-full font-bold text-xs hover:opacity-90 transition-all"
-            >
-              Execute Transaction
-            </button>
           </div>
         </div>
       </header>
@@ -171,21 +262,6 @@ export default function PrescriptionWizard() {
             <p className="text-[#e5e2e1]">21,000 GWEI</p>
           </div>
         </div>
-
-        <div className="mt-auto space-y-2">
-          <button 
-            onClick={() => alert("Please attach transaction validation signatures via MetaMask first.")}
-            className="w-full bg-[#5de6ff] text-[#00363e] py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-xs transition-transform active:scale-95"
-          >
-            <QrCode className="w-4 h-4" /> Generate QR Code
-          </button>
-          <button 
-            onClick={() => alert("Connecting target address pipeline loops...")}
-            className="w-full border border-[#5de6ff]/30 text-[#5de6ff] bg-[#5de6ff]/5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-xs transition-colors hover:bg-[#5de6ff]/10"
-          >
-            <Wallet className="w-4 h-4" /> Sign with MetaMask
-          </button>
-        </div>
       </aside>
 
       {/* Main Core Form Wizard Canvas */}
@@ -217,34 +293,40 @@ export default function PrescriptionWizard() {
           {/* Form Action Blocks Layout */}
           <div className="space-y-6">
             
+            {errorMsg && (
+              <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs font-semibold">
+                {errorMsg}
+              </div>
+            )}
+            
+            {successMsg && (
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-semibold">
+                {successMsg}
+              </div>
+            )}
+
             {/* Step 1: Patient Search Input Section */}
             <div className="bg-[#131313] border border-white/10 p-6 rounded-2xl">
               <h4 className="text-base font-bold mb-4 flex items-center gap-2 text-white">
                 <Search className="text-[#5de6ff] w-4 h-4" /> Patient National Health Registry Lookup
               </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-[10px] font-bold tracking-wider uppercase text-[#8c909f]">ABHA ID / National Identifier</label>
-                  <input 
-                    value={abhaQuery}
-                    onChange={(e) => setAbhaQuery(e.target.value)}
-                    className="w-full bg-[#0e0e0e] border border-[#5de6ff]/30 rounded-xl px-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-[#5de6ff]/30 outline-none transition-all font-mono" 
-                    type="text" 
-                  />
-                </div>
-                <div className="flex items-end">
-                  <button 
-                    onClick={() => setIsFetched(true)}
-                    className="bg-[#201f1f] text-white border border-white/10 px-4 py-2.5 rounded-xl font-bold text-xs w-full hover:bg-white/5 transition-colors"
-                  >
-                    Fetch ABHA Record
-                  </button>
-                </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold tracking-wider uppercase text-[#8c909f]">Select Patient Email / Profile</label>
+                <select 
+                  value={selectedPatientId}
+                  onChange={(e) => setSelectedPatientId(e.target.value)}
+                  className="w-full bg-[#0e0e0e] border border-[#5de6ff]/30 rounded-xl px-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-[#5de6ff]/30 outline-none transition-all"
+                >
+                  <option value="">-- Select Patient Profile --</option>
+                  {patientsList.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.email})</option>
+                  ))}
+                </select>
               </div>
             </div>
 
             {/* Step 2: Patient Profile Info Verification Row */}
-            {isFetched && (
+            {selectedPatient && (
               <div className="bg-[#131313] border border-white/10 p-6 rounded-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex justify-between items-start mb-4">
                   <h4 className="text-base font-bold flex items-center gap-2 text-white">
@@ -257,20 +339,20 @@ export default function PrescriptionWizard() {
                 
                 <div className="flex flex-col sm:flex-row gap-4 items-center">
                   <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center font-bold text-base text-[#5de6ff] font-mono">
-                    AS
+                    {selectedPatient.name.slice(0,2).toUpperCase()}
                   </div>
                   <div className="grid grid-cols-3 gap-6 flex-1 text-xs">
                     <div>
                       <span className="text-[#8c909f] block text-[9px] uppercase tracking-wider mb-0.5">Full Name</span>
-                      <p className="font-bold text-white text-sm">Aarav Sharma</p>
+                      <p className="font-bold text-white text-sm">{selectedPatient.name}</p>
                     </div>
                     <div>
-                      <span className="text-[#8c909f] block text-[9px] uppercase tracking-wider mb-0.5">Metrics</span>
-                      <p className="font-bold text-white text-sm">34 Yrs / Male</p>
+                      <span className="text-[#8c909f] block text-[9px] uppercase tracking-wider mb-0.5">Identity Index</span>
+                      <p className="font-bold text-white text-sm">34 Yrs / Active</p>
                     </div>
                     <div>
-                      <span className="text-[#8c909f] block text-[9px] uppercase tracking-wider mb-0.5">Blood Type</span>
-                      <p className="mt-0.5"><span className="bg-[#5de6ff]/10 text-[#5de6ff] px-2 py-0.5 rounded text-[10px] font-bold font-mono">O+ Positive</span></p>
+                      <span className="text-[#8c909f] block text-[9px] uppercase tracking-wider mb-0.5">Linked Wallet</span>
+                      <p className="mt-0.5 truncate text-[#adc6ff]">{selectedPatient.walletAddress || 'None Attached'}</p>
                     </div>
                   </div>
                 </div>
@@ -279,24 +361,69 @@ export default function PrescriptionWizard() {
 
             {/* Step 3: Interactive Medicine Entry Form Table */}
             <div className="bg-[#131313] border border-white/10 p-6 rounded-2xl">
-              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4">
-                <h4 className="text-base font-bold flex items-center gap-2 text-white">
-                  <FileText className="text-[#5de6ff] w-4 h-4" /> Itemized Prescription Matrix Builder
-                </h4>
-                
-                <div className="flex items-center gap-2 ml-auto">
-                  <input 
-                    placeholder="Quick Add Drug name..." 
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    className="bg-[#0e0e0e] border border-white/10 px-3 py-1.5 rounded-lg text-xs w-44 focus:outline-none focus:border-[#5de6ff] text-white"
-                  />
-                  <button 
-                    onClick={addMedicine}
-                    className="text-[#5de6ff] text-xs font-bold flex items-center gap-1 bg-[#5de6ff]/10 px-3 py-1.5 rounded-lg border border-[#5de6ff]/20 hover:bg-[#5de6ff]/20"
+              <h4 className="text-base font-bold flex items-center gap-2 text-white mb-4">
+                <FileText className="text-[#5de6ff] w-4 h-4" /> Itemized Prescription Matrix Builder
+              </h4>
+              
+              <div className="bg-black/35 border border-white/5 p-4 rounded-xl mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold tracking-wider uppercase text-[#8c909f] block mb-1">Select Medicine</label>
+                  <select 
+                    value={selectedMedicineName}
+                    onChange={(e) => setSelectedMedicineName(e.target.value)}
+                    className="w-full bg-[#0e0e0e] border border-white/10 rounded-lg p-2 text-xs text-white"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Add
-                  </button>
+                    <option value="">-- Choose Medicine --</option>
+                    {medicinesList.map((m) => (
+                      <option key={m.id} value={m.name}>{m.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold tracking-wider uppercase text-[#8c909f] block mb-1">Total Quantity (Units)</label>
+                  <input 
+                    type="number"
+                    value={quantity}
+                    onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
+                    className="w-full bg-[#0e0e0e] border border-white/10 rounded-lg p-2 text-xs text-white"
+                  />
+                </div>
+
+                <div className="md:col-span-2 grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Morning Dose</label>
+                    <input type="number" value={dosageMorning} onChange={e => setDosageMorning(Number(e.target.value))} className="w-full bg-[#0e0e0e] border border-white/10 rounded p-1.5 text-xs text-center text-white" />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Noon Dose</label>
+                    <input type="number" value={dosageNoon} onChange={e => setDosageNoon(Number(e.target.value))} className="w-full bg-[#0e0e0e] border border-white/10 rounded p-1.5 text-xs text-center text-white" />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-500 uppercase tracking-widest block mb-1">Evening Dose</label>
+                    <input type="number" value={dosageEvening} onChange={e => setDosageEvening(Number(e.target.value))} className="w-full bg-[#0e0e0e] border border-white/10 rounded p-1.5 text-xs text-center text-white" />
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 flex justify-between items-center gap-4">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold tracking-wider uppercase text-[#8c909f] block mb-1">Duration (Days)</label>
+                    <input 
+                      type="number"
+                      value={durationDays}
+                      onChange={(e) => setDurationDays(parseInt(e.target.value) || 0)}
+                      className="w-full bg-[#0e0e0e] border border-white/10 rounded-lg p-2 text-xs text-white"
+                    />
+                  </div>
+                  <div className="flex items-end mt-4">
+                    <button 
+                      type="button"
+                      onClick={addMedicine}
+                      className="text-[#5de6ff] text-xs font-bold flex items-center gap-1 bg-[#5de6ff]/10 px-4 py-2.5 rounded-lg border border-[#5de6ff]/20 hover:bg-[#5de6ff]/20"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Drug
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -312,44 +439,53 @@ export default function PrescriptionWizard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 text-xs text-[#e5e2e1]">
-                    {medicines.map((med) => (
-                      <tr key={med.id} className="hover:bg-white/[0.01] transition-colors group">
-                        <td className="px-4 py-3.5">
-                          <p className="font-bold text-white">{med.name}</p>
-                          <p className="text-[11px] text-[#8c909f]">{med.category}</p>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <div className="flex gap-1 font-mono text-[11px]">
-                            {med.dosage.map((dose, i) => (
-                              <span key={i} className={`w-6 h-6 rounded border flex items-center justify-center font-bold ${dose > 0 ? 'bg-[#5de6ff]/10 text-[#5de6ff] border-[#5de6ff]/20' : 'bg-[#0e0e0e] text-[#8c909f] border-white/5'}`}>
-                                {dose}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <p className="font-medium">{med.duration}</p>
-                          <p className="text-[9px] text-[#8c909f] font-mono uppercase">{med.daysLabel}</p>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="font-mono text-[#5de6ff]">{med.quantity}</span>
-                        </td>
-                        <td className="px-4 py-3.5 text-right">
-                          <button 
-                            onClick={() => deleteMedicine(med.id)}
-                            className="text-[#ffb4ab] hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-all"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                    {prescribedMedicines.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-6 text-center text-xs text-slate-500 font-medium">
+                          No items added to the matrix regimen yet.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      prescribedMedicines.map((med) => (
+                        <tr key={med.id} className="hover:bg-white/[0.01] transition-colors group">
+                          <td className="px-4 py-3.5">
+                            <p className="font-bold text-white">{med.name}</p>
+                            <p className="text-[11px] text-[#8c909f]">{med.category}</p>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <div className="flex gap-1 font-mono text-[11px]">
+                              {med.dosage.map((dose, i) => (
+                                <span key={i} className={`w-6 h-6 rounded border flex items-center justify-center font-bold ${dose > 0 ? 'bg-[#5de6ff]/10 text-[#5de6ff] border-[#5de6ff]/20' : 'bg-[#0e0e0e] text-[#8c909f] border-white/5'}`}>
+                                  {dose}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <p className="font-medium">{med.duration}</p>
+                            <p className="text-[9px] text-[#8c909f] font-mono uppercase">{med.daysLabel}</p>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="font-mono text-[#5de6ff]">{med.quantity} Units</span>
+                          </td>
+                          <td className="px-4 py-3.5 text-right">
+                            <button 
+                              type="button"
+                              onClick={() => deleteMedicine(med.id)}
+                              className="text-[#ffb4ab] hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-all"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* Step 4: Blockchain Storage Summary Row metadata fields */}
+            {/* Step 4: Blockchain Storage Summary Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-[#131313] border border-white/10 p-5 rounded-2xl flex flex-col justify-between">
                 <h5 className="text-[10px] font-bold tracking-wider uppercase text-[#adc6ff] font-mono mb-2">Storage Metadata</h5>
@@ -384,18 +520,20 @@ export default function PrescriptionWizard() {
 
             {/* Bottom Actions Confirmation Strip Bar */}
             <div className="flex justify-between items-center pt-6 border-t border-white/10 text-xs">
-              <button className="text-[#8c909f] font-bold hover:text-white transition-all">Save Local Draft</button>
+              <button type="button" className="text-[#8c909f] font-bold hover:text-white transition-all">Save Local Draft</button>
               <div className="flex gap-3">
                 <Link href="/doctor">
-                  <button className="px-5 py-2.5 rounded-xl font-bold border border-white/10 text-[#c2c6d6] hover:bg-white/5 transition-all">
+                  <button type="button" className="px-5 py-2.5 rounded-xl font-bold border border-white/10 text-[#c2c6d6] hover:bg-white/5 transition-all">
                     Discard
                   </button>
                 </Link>
                 <button 
-                  onClick={() => alert("Success: Encryption verified. Document metadata hashes pushed to Polygon Amoy pipeline registry bundle.")}
-                  className="px-6 py-2.5 bg-[#adc6ff] text-[#00285d] font-bold rounded-xl shadow-lg shadow-blue-500/15 hover:opacity-90 active:scale-95 transition-all"
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleFinalize}
+                  className="px-6 py-2.5 bg-[#adc6ff] text-[#00285d] font-bold rounded-xl shadow-lg shadow-blue-500/15 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
                 >
-                  Finalize & Lock Registry
+                  {isSubmitting ? "Finalizing Registry..." : "Finalize & Lock Registry"}
                 </button>
               </div>
             </div>

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/components/shared/AuthContext';
 import {
     LayoutDashboard,
     QrCode,
@@ -21,18 +22,37 @@ import {
     Store
 } from 'lucide-react';
 
-const INITIAL_QUEUE = [
-    { id: "0x42f...e2a9", name: "Aarav Sharma", status: "VERIFIED", time: "14:02 PM" },
-    { id: "0x9d1...c7b2", name: "Elena Rodriguez", status: "DISPENSING", time: "13:58 PM" },
-    { id: "0x7a3...f104", name: "Marcus Thorne", status: "FLAGGED", time: "13:45 PM" },
-    { id: "0x2b8...a881", name: "Priya Patel", status: "VERIFIED", time: "13:30 PM" },
-    { id: "0xef9...d332", name: "Samuel Jenkins", status: "VERIFIED", time: "13:12 PM" }
-];
-
 export default function PharmacyDashboard() {
-    const [queue] = useState(INITIAL_QUEUE);
+    const { user } = useAuth();
+    const [queue, setQueue] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [copiedId, setCopiedId] = useState<string | null>(null);
+
+    useEffect(() => {
+        async function loadPharmacyData() {
+            try {
+                const res = await fetch('/api/prescriptions');
+                if (res.ok) {
+                    const result = await res.json();
+                    const rxList = result.data || [];
+                    const mappedQueue = rxList.map((rx: any) => ({
+                        id: rx.prescriptionId,
+                        name: rx.User_Prescription_patientIdToUser?.name || 'Unknown Patient',
+                        status: rx.status,
+                        time: new Date(rx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        medicines: rx.PrescriptionItem?.map((item: any) => item.Medicine?.name || '').join(', ') || ''
+                    }));
+                    setQueue(mappedQueue);
+                }
+            } catch (err) {
+                console.error('Failed to load pharmacy data', err);
+            } finally {
+                setLoading(false);
+            }
+        }
+        loadPharmacyData();
+    }, []);
 
     const handleCopy = (id: string) => {
         navigator.clipboard.writeText(id);
@@ -42,7 +62,8 @@ export default function PharmacyDashboard() {
 
     const filteredQueue = queue.filter(item =>
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.id.includes(searchQuery)
+        item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.medicines.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -221,18 +242,23 @@ export default function PharmacyDashboard() {
                                                 </td>
                                                 <td className="px-6 py-4 text-white font-sans font-medium">{item.name}</td>
                                                 <td className="px-6 py-4">
-                                                    {item.status === 'VERIFIED' && (
+                                                    {(item.status === 'VERIFIED' || item.status === 'CREATED') && (
                                                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                                            Verified
+                                                            Active / Valid
                                                         </span>
                                                     )}
-                                                    {item.status === 'DISPENSING' && (
+                                                    {item.status === 'DISPENSED' && (
                                                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-[#adc6ff]/10 text-[#adc6ff] border border-[#adc6ff]/20">
-                                                            Dispensing
+                                                            Dispensed
+                                                        </span>
+                                                    )}
+                                                    {item.status === 'EXPIRED' && (
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+                                                            Expired
                                                         </span>
                                                     )}
                                                     {item.status === 'FLAGGED' && (
-                                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                                             Flagged
                                                         </span>
                                                     )}

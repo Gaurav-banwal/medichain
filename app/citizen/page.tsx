@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/components/shared/AuthContext';
 import { 
   ShieldCheck, 
   QrCode, 
@@ -18,64 +19,53 @@ import {
   LogOut
 } from 'lucide-react';
 
-// Mock data tracking the Prisma schema fields exactly for mock validation flow
-const INITIAL_PRESCRIPTIONS = [
-  {
-    id: "pr_1",
-    prescriptionId: "MC-TX-9082",
-    doctorName: "Dr. Arvind Sharma",
-    institution: "AIIMS New Delhi",
-    status: "ACTIVE", // ACTIVE, DISPENSED, EXPIRED
-    expiryDate: "2026-08-15",
-    ipfsHash: "QmXoypujjZisZ3X9Jv3K...789",
-    items: [
-      { name: "Amoxicillin 500mg", dosage: "1-0-1", duration: "5 Days", quantity: 10 },
-      { name: "Paracetamol 650mg", dosage: "1-1-1", duration: "3 Days", quantity: 9 }
-    ]
-  },
-  {
-    id: "pr_2",
-    prescriptionId: "MC-TX-4310",
-    doctorName: "Dr. Meera Nair",
-    institution: "Fortis Hospital",
-    status: "DISPENSED",
-    expiryDate: "2026-05-10",
-    ipfsHash: "QmZ3KxoypujjZis9Jv7X...123",
-    items: [
-      { name: "Metformin 500mg", dosage: "0-1-0", duration: "30 Days", quantity: 30 }
-    ]
-  },
-  {
-    id: "pr_3",
-    prescriptionId: "MC-TX-2219",
-    doctorName: "Dr. Rajesh Patel",
-    institution: "Apollo Clinics",
-    status: "EXPIRED",
-    expiryDate: "2026-03-01",
-    ipfsHash: "QmYv7X3KxoypujjZis9J...456",
-    items: [
-      { name: "Cetirizine 10mg", dosage: "0-0-1", duration: "7 Days", quantity: 7 }
-    ]
-  }
-];
-
 export default function CitizenDashboard() {
-  const [prescriptions] = useState(INITIAL_PRESCRIPTIONS);
-  const [selectedPrescription, setSelectedPrescription] = useState<typeof INITIAL_PRESCRIPTIONS[0] | null>(null);
+  const { user, logout } = useAuth();
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPrescription, setSelectedPrescription] = useState<any | null>(null);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
-  // Profile data mock representing Gov DigiLocker + ABHA verification fields
+  useEffect(() => {
+    async function loadPrescriptions() {
+      try {
+        const res = await fetch('/api/prescriptions');
+        if (res.ok) {
+          const result = await res.json();
+          setPrescriptions(result.data || []);
+        }
+      } catch (err) {
+        console.error('Failed to load prescriptions', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadPrescriptions();
+  }, []);
+
+  // Profile data representing Gov DigiLocker + ABHA verification fields
   const citizenProfile = {
-    name: "Rohan Verma",
-    abhaId: "91-2034-5891-0432",
-    digilockerId: "DL-IND-883921",
-    walletAddress: "0x7a2d...9b21"
+    name: user?.name || 'Citizen Patient',
+    abhaId: '91-2034-5891-0432', // demo default
+    digilockerId: 'DL-IND-883921',
+    walletAddress: user?.walletAddress || '0x7a2d...9b21'
   };
 
-  const openQrModal = (prescription: typeof INITIAL_PRESCRIPTIONS[0]) => {
+  const openQrModal = (prescription: any) => {
     setSelectedPrescription(prescription);
     setIsQrModalOpen(true);
   };
+
+  if (loading) {
+    return (
+      <div className="bg-[#050505] text-[#e5e2e1] min-h-screen flex items-center justify-center font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xs text-slate-400">Loading prescription vault...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#050505] text-[#e5e2e1] min-h-screen font-sans antialiased selection:bg-blue-500/30">
@@ -98,14 +88,17 @@ export default function CitizenDashboard() {
               <span className="text-xs font-semibold text-white">{citizenProfile.name}</span>
               <span className="text-[10px] text-[#c2c6d6] font-mono">ABHA: {citizenProfile.abhaId}</span>
             </div>
-            <Link href="/">
-              <button className="p-2 rounded-xl bg-white/5 border border-white/10 text-red-400 hover:bg-red-500/10 transition-colors">
-                <LogOut className="w-4 h-4" />
-              </button>
-            </Link>
+            <button 
+              onClick={logout}
+              className="p-2 rounded-xl bg-white/5 border border-white/10 text-red-400 hover:bg-red-500/10 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </nav>
+
+
 
       {/* Main Content Body */}
       <main className="max-w-7xl mx-auto pt-24 pb-16 px-6 grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -161,91 +154,108 @@ export default function CitizenDashboard() {
 
           {/* Grid Layout Listing Active/Dispatched Assets */}
           <div className="flex flex-col gap-4">
-            {prescriptions.map((rx) => (
-              <div 
-                key={rx.id} 
-                className="bg-[#131313] border border-white/10 rounded-2xl p-6 transition-all hover:border-white/20 relative group"
-              >
-                {/* Status Indicator Chip */}
-                <div className="absolute top-6 right-6">
-                  {rx.status === 'ACTIVE' && (
-                    <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-lg font-medium tracking-wide">
-                      Active / Valid
-                    </span>
-                  )}
-                  {rx.status === 'DISPENSED' && (
-                    <span className="text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2.5 py-1 rounded-lg font-medium tracking-wide">
-                      Medicine Dispensed
-                    </span>
-                  )}
-                  {rx.status === 'EXPIRED' && (
-                    <span className="text-xs bg-red-500/10 text-red-400 border border-red-500/20 px-2.5 py-1 rounded-lg font-medium tracking-wide">
-                      Expired
-                    </span>
-                  )}
-                </div>
-
-                {/* Card Title Layer */}
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="h-10 w-10 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-[#adc6ff]">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-white text-base">{rx.doctorName}</h3>
-                    <p className="text-xs text-[#c2c6d6] flex items-center gap-1 mt-0.5">
-                      {rx.institution} • <Clock className="w-3 h-3" /> Valid Until: {rx.expiryDate}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Inner Prescribed Item Block Grid */}
-                <div className="bg-black/40 border border-white/5 rounded-xl p-4 mb-4">
-                  <span className="text-[10px] text-[#c2c6d6] block uppercase tracking-wider mb-2 font-mono font-bold">Prescribed Regimen</span>
-                  <div className="flex flex-col gap-2">
-                    {rx.items.map((item, idx) => (
-                      <div key={idx} className="flex justify-between items-center text-xs">
-                        <span className="text-white flex items-center gap-1.5 font-medium">
-                          <Pill className="w-3.5 h-3.5 text-teal-400" /> {item.name}
-                        </span>
-                        <span className="text-[#c2c6d6] font-mono">
-                          {item.dosage} • {item.duration} ({item.quantity} Qty)
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Actions Bottom Bar */}
-                <div className="flex flex-wrap justify-between items-center pt-2 border-t border-white/5 text-xs gap-3">
-                  <span className="font-mono text-[#c2c6d6] text-[11px] truncate max-w-xs block">
-                    IPFS HASH: <span className="text-blue-300">{rx.ipfsHash}</span>
-                  </span>
-                  
-                  <div className="flex items-center gap-2 ml-auto">
-                    <a 
-                      href={`https://amoy.polygonscan.com/`} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-white flex items-center gap-1 transition-colors"
-                    >
-                      <ExternalLink className="w-3 h-3" /> PolygonScan
-                    </a>
-                    <button 
-                      onClick={() => openQrModal(rx)}
-                      disabled={rx.status !== 'ACTIVE'}
-                      className={`px-4 py-1.5 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
-                        rx.status === 'ACTIVE' 
-                          ? 'bg-[#adc6ff] text-[#002e6a] hover:opacity-90 active:scale-95' 
-                          : 'bg-white/5 border border-white/5 text-[#c2c6d6] cursor-not-allowed'
-                      }`}
-                    >
-                      <QrCode className="w-3.5 h-3.5" /> View QR
-                    </button>
-                  </div>
-                </div>
-
+            {prescriptions.length === 0 ? (
+              <div className="bg-[#131313] border border-white/10 rounded-2xl p-12 text-center text-xs text-slate-500">
+                No active or historical prescriptions found in your ledger.
               </div>
-            ))}
+            ) : (
+              prescriptions.map((rx) => {
+                const docName = rx.User_Prescription_doctorIdToUser?.name || 'Dr. Unknown';
+                const expDate = new Date(rx.expiryDate).toLocaleDateString();
+                const isExpired = new Date(rx.expiryDate) < new Date();
+                const isDispensed = rx.status === 'DISPENSED';
+                const isActive = rx.status === 'CREATED' || rx.status === 'VERIFIED';
+                
+                return (
+                  <div 
+                    key={rx.id} 
+                    className="bg-[#131313] border border-white/10 rounded-2xl p-6 transition-all hover:border-white/20 relative group"
+                  >
+                    {/* Status Indicator Chip */}
+                    <div className="absolute top-6 right-6">
+                      {isActive && !isExpired && (
+                        <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-lg font-medium tracking-wide">
+                          Active / Valid
+                        </span>
+                      )}
+                      {isDispensed && (
+                        <span className="text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2.5 py-1 rounded-lg font-medium tracking-wide">
+                          Medicine Dispensed
+                        </span>
+                      )}
+                      {(isExpired || rx.status === 'EXPIRED') && (
+                        <span className="text-xs bg-red-500/10 text-red-400 border border-red-500/20 px-2.5 py-1 rounded-lg font-medium tracking-wide">
+                          Expired
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Card Title Layer */}
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="h-10 w-10 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-[#adc6ff]">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-white text-base">{docName}</h3>
+                        <p className="text-xs text-[#c2c6d6] flex items-center gap-1 mt-0.5">
+                          {rx.User_Prescription_doctorIdToUser?.email || 'Medical Institute'} • <Clock className="w-3 h-3" /> Valid Until: {expDate}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Inner Prescribed Item Block Grid */}
+                    <div className="bg-black/40 border border-white/5 rounded-xl p-4 mb-4">
+                      <span className="text-[10px] text-[#c2c6d6] block uppercase tracking-wider mb-2 font-mono font-bold">Prescribed Regimen</span>
+                      <div className="flex flex-col gap-2">
+                        {rx.PrescriptionItem?.map((item: any, idx: number) => {
+                          const qty = (item.dosageAmount || 1) * (item.frequencyPerDay || 1) * (item.durationDays || 1);
+                          return (
+                            <div key={idx} className="flex justify-between items-center text-xs">
+                              <span className="text-white flex items-center gap-1.5 font-medium">
+                                <Pill className="w-3.5 h-3.5 text-teal-400" /> {item.Medicine?.name || 'Prescribed Drug'}
+                              </span>
+                              <span className="text-[#c2c6d6] font-mono">
+                                {item.dosageAmount}mg ({item.frequencyPerDay}x daily) • {item.durationDays} Days ({qty} Qty)
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Actions Bottom Bar */}
+                    <div className="flex flex-wrap justify-between items-center pt-2 border-t border-white/5 text-xs gap-3">
+                      <span className="font-mono text-[#c2c6d6] text-[11px] truncate max-w-xs block">
+                        IPFS HASH: <span className="text-blue-300">{rx.ipfsHash}</span>
+                      </span>
+                      
+                      <div className="flex items-center gap-2 ml-auto">
+                        <a 
+                          href={rx.txHash ? `https://amoy.polygonscan.com/tx/${rx.txHash}` : `https://amoy.polygonscan.com/`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-white flex items-center gap-1 transition-colors"
+                        >
+                          <ExternalLink className="w-3 h-3" /> PolygonScan
+                        </a>
+                        <button 
+                          onClick={() => openQrModal(rx)}
+                          disabled={!isActive || isExpired}
+                          className={`px-4 py-1.5 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
+                            isActive && !isExpired
+                              ? 'bg-[#adc6ff] text-[#002e6a] hover:opacity-90 active:scale-95' 
+                              : 'bg-white/5 border border-white/5 text-[#c2c6d6] cursor-not-allowed'
+                          }`}
+                        >
+                          <QrCode className="w-3.5 h-3.5" /> View QR
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })
+            )}
           </div>
         </section>
 
@@ -267,7 +277,9 @@ export default function CitizenDashboard() {
               <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-md font-mono mb-4">
                 Valid Verification Key
               </span>
-              <h2 className="text-lg font-bold text-white mb-1">{selectedPrescription.doctorName}</h2>
+              <h2 className="text-lg font-bold text-white mb-1">
+                {selectedPrescription.User_Prescription_doctorIdToUser?.name || 'Dr. Unknown'}
+              </h2>
               <p className="text-xs text-[#c2c6d6] mb-6">ID Token: {selectedPrescription.prescriptionId}</p>
 
               {/* Vector Representation of QR Container mapping onto Stitch parameters */}
