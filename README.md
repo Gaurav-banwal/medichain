@@ -160,156 +160,10 @@ Doctor Creates Prescription
 ## Authentication
 
 * DigiLocker OAuth
-* JWT Authentication
 
 ## Wallet
 
 * MetaMask
-
----
-
-# 📂 Project Structure
-
-```text
-medichain/
-
-├── public/
-│   ├── images/
-│   ├── icons/
-│   └── logos/
-│
-├── contracts/
-│   ├── PrescriptionContract.sol
-│   └── deploy.ts
-│
-├── prisma/
-│   ├── schema.prisma
-│   └── seed.ts
-│
-├── app/
-│
-│   ├── (auth)/
-│   │   ├── login/
-│   │   │   └── page.tsx
-│   │   └── callback/
-│   │       └── page.tsx
-│   │
-│   ├── citizen/
-│   │   ├── dashboard/
-│   │   ├── prescriptions/
-│   │   ├── medicine-history/
-│   │   ├── verify-medicine/
-│   │   ├── blockchain-records/
-│   │   └── profile/
-│   │
-│   ├── doctor/
-│   │   ├── dashboard/
-│   │   ├── create-prescription/
-│   │   ├── prescriptions/
-│   │   ├── patients/
-│   │   └── profile/
-│   │
-│   ├── pharmacy/
-│   │   ├── dashboard/
-│   │   ├── verify/
-│   │   ├── dispense/
-│   │   ├── inventory/
-│   │   └── profile/
-│   │
-│   ├── regulator/
-│   │   ├── dashboard/
-│   │   ├── audit-logs/
-│   │   ├── reports/
-│   │   ├── blockchain-explorer/
-│   │   └── investigations/
-│   │
-│   ├── api/
-│   │   ├── auth/
-│   │   ├── prescriptions/
-│   │   ├── blockchain/
-│   │   ├── pharmacy/
-│   │   ├── users/
-│   │   └── reports/
-│   │
-│   ├── layout.tsx
-│   ├── page.tsx
-│   └── globals.css
-│
-├── components/
-│
-│   ├── ui/
-│   │   ├── button.tsx
-│   │   ├── card.tsx
-│   │   ├── table.tsx
-│   │   └── dialog.tsx
-│   │
-│   ├── dashboard/
-│   │   ├── StatsCard.tsx
-│   │   ├── ActivityTimeline.tsx
-│   │   ├── BlockchainCard.tsx
-│   │   └── AnalyticsChart.tsx
-│   │
-│   ├── prescription/
-│   │   ├── PrescriptionForm.tsx
-│   │   ├── PrescriptionTable.tsx
-│   │   ├── PrescriptionDetails.tsx
-│   │   └── QRGenerator.tsx
-│   │
-│   ├── pharmacy/
-│   │   ├── QRScanner.tsx
-│   │   ├── VerificationCard.tsx
-│   │   └── DispenseForm.tsx
-│   │
-│   ├── blockchain/
-│   │   ├── TransactionCard.tsx
-│   │   ├── BlockchainExplorer.tsx
-│   │   └── WalletConnect.tsx
-│   │
-│   └── shared/
-│       ├── Sidebar.tsx
-│       ├── Navbar.tsx
-│       ├── Loader.tsx
-│       └── RoleGuard.tsx
-│
-├── lib/
-│
-│   ├── prisma.ts
-│   ├── auth.ts
-│   ├── blockchain.ts
-│   ├── ipfs.ts
-│   ├── qr.ts
-│   ├── digilocker.ts
-│   └── utils.ts
-│
-├── hooks/
-│   ├── useWallet.ts
-│   ├── usePrescription.ts
-│   └── useUser.ts
-│
-├── store/
-│   ├── authStore.ts
-│   ├── prescriptionStore.ts
-│   └── dashboardStore.ts
-│
-├── types/
-│   ├── user.ts
-│   ├── prescription.ts
-│   ├── blockchain.ts
-│   └── api.ts
-│
-├── constants/
-│   ├── roles.ts
-│   ├── routes.ts
-│   └── status.ts
-│
-├── middleware.ts
-│
-├── .env
-├── next.config.ts
-├── package.json
-├── tailwind.config.ts
-└── tsconfig.json
-```
 
 ---
 
@@ -424,28 +278,8 @@ timestamp
 ---
 
 # 🌐 Deployment
-
-## Frontend
-
 Vercel
 
-## Backend
-
-Railway / Render
-
-## Database
-
-Neon PostgreSQL
-
-## Storage
-
-Pinata IPFS
-
-## Blockchain
-
-Polygon Amoy Testnet
-
----
 
 # 🏆 Hackathon Impact
 
@@ -457,7 +291,7 @@ The platform is designed as a hackathon MVP while remaining scalable for future 
 
 # 👨‍💻 Team
 
-Built with ❤️ using Next.js, Polygon, IPFS, Prisma, PostgreSQL, and DigiLocker integration.
+Built with ❤️ using Next.js, Polygon, IPFS, Prisma, PostgreSQL.
 
 ## Tagline
 
