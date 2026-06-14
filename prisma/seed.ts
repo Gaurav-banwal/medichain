@@ -55,6 +55,32 @@ async function main() {
     },
   });
 
+  // ─── MEDICINES ────────────────────────────────────────
+
+  const paracetamol = await prisma.medicine.upsert({
+    where: { name: "Paracetamol" },
+    update: {},
+    create: {
+      id: "demo-medicine-id-1",
+      name: "Paracetamol",
+      unit: "mg",
+      maxDosePerDay: 1000,
+      maxDurationDays: 10,
+    },
+  });
+
+  const amoxicillin = await prisma.medicine.upsert({
+    where: { name: "Amoxicillin" },
+    update: {},
+    create: {
+      id: "demo-medicine-id-2",
+      name: "Amoxicillin",
+      unit: "mg",
+      maxDosePerDay: 750,
+      maxDurationDays: 14,
+    },
+  });
+
   // ─── PRESCRIPTION ────────────────────────────────────
 
   const prescription = await prisma.prescription.upsert({
@@ -73,18 +99,18 @@ async function main() {
         create: [
           {
             id: "demo-item-id-1",
-            medicineName: "Paracetamol 500mg",
-            dosage: "500mg",
-            duration: "5 days",
-            quantity: 10,
+            medicineId: paracetamol.id,
+            dosageAmount: 500.0,
+            frequencyPerDay: 2,
+            durationDays: 5,
             instructions: "Take after meals, twice daily",
           },
           {
             id: "demo-item-id-2",
-            medicineName: "Amoxicillin 250mg",
-            dosage: "250mg",
-            duration: "7 days",
-            quantity: 14,
+            medicineId: amoxicillin.id,
+            dosageAmount: 250.0,
+            frequencyPerDay: 3,
+            durationDays: 7,
             instructions: "Take one capsule every 8 hours",
           },
         ],

@@ -81,6 +81,13 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      if (medicine.isBanned) {
+        return NextResponse.json(
+          { success: false, error: `Medicine "${medicine.name}" is currently banned by the government and cannot be prescribed` },
+          { status: 400 }
+        );
+      }
+
       // Extract / Parse durationDays fallback
       let finalDurationDays = null;
       if (typeof item.durationDays === "number") {
@@ -157,14 +164,10 @@ export async function POST(req: NextRequest) {
               id: crypto.randomUUID(),
               prescriptionId: rx.id,
               medicineId: item.medicineId,
-              medicineName: item.medicineName,
-              dosage: item.dosage,
-              duration: item.duration,
-              quantity: item.quantity,
               instructions: item.instructions || null,
-              dosageAmount: item.dosageAmount,
-              durationDays: item.durationDays,
-              frequencyPerDay: item.frequencyPerDay,
+              dosageAmount: item.dosageAmount ?? 1.0,
+              durationDays: item.durationDays ?? 1,
+              frequencyPerDay: item.frequencyPerDay ?? 1,
             },
           });
         })

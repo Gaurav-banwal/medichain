@@ -8,17 +8,20 @@ datasource db {
 }
 
 model User {
-  id                                         String         @id @default(uuid())
+  id                                         String               @id @default(uuid())
   name                                       String
-  email                                      String         @unique
+  email                                      String               @unique
   role                                       Role
-  walletAddress                              String?        @unique
-  createdAt                                  DateTime       @default(now())
+  walletAddress                              String?              @unique
+  createdAt                                  DateTime             @default(now())
   passwordHash                               String?
   AuditLog                                   AuditLog[]
-  Prescription_Prescription_doctorIdToUser   Prescription[] @relation("Prescription_doctorIdToUser")
-  Prescription_Prescription_patientIdToUser  Prescription[] @relation("Prescription_patientIdToUser")
-  Prescription_Prescription_pharmacyIdToUser Prescription[] @relation("Prescription_pharmacyIdToUser")
+  DispensedMedicine                          DispensedMedicine[]
+  MedicineRegulation                         MedicineRegulation[]
+  PharmacyInventory                          PharmacyInventory[]
+  Prescription_Prescription_doctorIdToUser   Prescription[]       @relation("Prescription_doctorIdToUser")
+  Prescription_Prescription_patientIdToUser  Prescription[]       @relation("Prescription_patientIdToUser")
+  Prescription_Prescription_pharmacyIdToUser Prescription[]       @relation("Prescription_pharmacyIdToUser")
 
   @@map("User")
 }
@@ -38,20 +41,21 @@ model AuditLog {
 }
 
 model Prescription {
-  id                                 String             @id
-  prescriptionId                     String             @unique
+  id                                 String              @id
+  prescriptionId                     String              @unique
   doctorId                           String
   patientId                          String
   ipfsHash                           String
-  status                             PrescriptionStatus @default(CREATED)
-  expiryDate                         DateTime
-  createdAt                          DateTime           @default(now())
-  dispensedAt                        DateTime?
-  pharmacyId                         String?
   txHash                             String?
-  User_Prescription_doctorIdToUser   User               @relation("Prescription_doctorIdToUser", fields: [doctorId], references: [id])
-  User_Prescription_patientIdToUser  User               @relation("Prescription_patientIdToUser", fields: [patientId], references: [id])
-  User_Prescription_pharmacyIdToUser User?              @relation("Prescription_pharmacyIdToUser", fields: [pharmacyId], references: [id])
+  status                             PrescriptionStatus  @default(CREATED)
+  expiryDate                         DateTime
+  createdAt                          DateTime            @default(now())
+  pharmacyId                         String?
+  dispensedAt                        DateTime?
+  DispensedMedicine                  DispensedMedicine[]
+  User_Prescription_doctorIdToUser   User                @relation("Prescription_doctorIdToUser", fields: [doctorId], references: [id])
+  User_Prescription_patientIdToUser  User                @relation("Prescription_patientIdToUser", fields: [patientId], references: [id])
+  User_Prescription_pharmacyIdToUser User?               @relation("Prescription_pharmacyIdToUser", fields: [pharmacyId], references: [id])
   PrescriptionItem                   PrescriptionItem[]
 
   @@index([doctorId])
@@ -63,16 +67,12 @@ model Prescription {
 model PrescriptionItem {
   id              String       @id
   prescriptionId  String
+  medicineId      String
+  dosageAmount    Float
+  frequencyPerDay Int
+  durationDays    Int
   instructions    String?
-  dosageAmount    Float?
-  durationDays    Int?
-  frequencyPerDay Int?
-  medicineId      String?
-  medicineName    String?
-  dosage          String?
-  duration        String?
-  quantity        Int?
-  Medicine        Medicine?    @relation(fields: [medicineId], references: [id], onDelete: Restrict)
+  Medicine        Medicine     @relation(fields: [medicineId], references: [id])
   Prescription    Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
 
   @@index([prescriptionId])
@@ -80,13 +80,65 @@ model PrescriptionItem {
 }
 
 model Medicine {
-  id               String             @id
-  name             String             @unique
-  unit             String             @default("mg")
-  maxDosePerDay    Float
-  maxDurationDays  Int                @default(30)
-  createdAt        DateTime           @default(now())
-  PrescriptionItem PrescriptionItem[]
+  id                 String              @id
+  name               String              @unique
+  unit               String              @default("mg")
+  maxDosePerDay      Float
+  maxDurationDays    Int                 @default(30)
+  createdAt          DateTime            @default(now())
+  isBanned           Boolean             @default(false)
+  DispensedMedicine  DispensedMedicine[]
+  MedicineRegulation MedicineRegulation?
+  PharmacyInventory  PharmacyInventory[]
+  PrescriptionItem   PrescriptionItem[]
+
+  @@index([name])
+}
+
+model DispensedMedicine {
+  id                String       @id
+  prescriptionId    String
+  medicineId        String
+  quantityDispensed Int
+  pricePerUnit      Float        @default(0.0)
+  totalPrice        Float        @default(0.0)
+  pharmacyId        String
+  dispensedAt       DateTime     @default(now())
+  txHash            String?
+  Medicine          Medicine     @relation(fields: [medicineId], references: [id])
+  User              User         @relation(fields: [pharmacyId], references: [id])
+  Prescription      Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([pharmacyId])
+  @@index([prescriptionId])
+}
+
+model MedicineRegulation {
+  id              String   @id
+  medicineId      String   @unique
+  scheduleClass   String   @default("UNCLASSIFIED")
+  isBanned        Boolean  @default(false)
+  maxDailyDosage  Float?
+  maxDurationDays Int?
+  regulatorId     String
+  updatedAt       DateTime
+  Medicine        Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  User            User     @relation(fields: [regulatorId], references: [id])
+
+  @@index([regulatorId])
+}
+
+model PharmacyInventory {
+  pharmacyId   String
+  medicineId   String
+  quantity     Int      @default(0)
+  price        Float    @default(0.0)
+  soldQuantity Int      @default(0)
+  totalSales   Float    @default(0.0)
+  Medicine     Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  User         User     @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+
+  @@id([pharmacyId, medicineId])
 }
 
 enum Role {

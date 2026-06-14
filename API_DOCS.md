@@ -1,205 +1,12 @@
-# MediChain Auth API Documentation
+# MediChain Core API Documentation
 
-This document describes the authentication API endpoints available in the MediChain Next.js project.
+This document describes the core functional API endpoints available in the MediChain Next.js project. For authentication-related endpoints (register, login, signup, session details, logout), please refer to the [Authentication API Documentation](file:///home/leo/Projects/project/medichain/AUTH_API_DOCS.md).
 
 **Base URL**: `http://localhost:3000`
 
 ---
 
-## 1. User Registration (Database-backed)
-
-Creates a new user record in the PostgreSQL database using Prisma and returns a signed JWT token in the response body.
-
-*   **Endpoint**: `/api/auth/register`
-*   **Method**: `POST`
-*   **Content-Type**: `application/json`
-
-### Request Body Fields
-| Field | Type | Required | Description |
-| :--- | :--- | :--- | :--- |
-| `name` | `string` | **Yes** | Full name of the user |
-| `email` | `string` | **Yes** | Unique email address |
-| `role` | `string` | **Yes** | User role: `CITIZEN`, `DOCTOR`, `PHARMACY`, or `REGULATOR` |
-| `walletAddress` | `string` | No | Web3 wallet address |
-
-### Request Example
-```json
-{
-  "name": "Jane Doe",
-  "email": "jane.doe@gmail.com",
-  "role": "CITIZEN",
-  "walletAddress": "0x9876543210987654321098765432109876543210"
-}
-```
-
-### Success Response (`201 Created`)
-*   **Headers**: Sets `Set-Cookie: token=<JWT_TOKEN>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800`
-```json
-{
-  "message": "User registered successfully",
-  "user": {
-    "id": "670c5388-75b2-4d1a-9694-817ab320141f",
-    "name": "Jane Doe",
-    "email": "jane.doe@gmail.com",
-    "role": "CITIZEN",
-    "walletAddress": "0x9876543210987654321098765432109876543210",
-    "createdAt": "2026-06-11T09:20:00.000Z"
-  },
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NzBjNTM4OC03NWIyLT..."
-}
-```
-
-### Error Responses
-*   **`400 Bad Request`**: If required parameters (`name`, `email`, `role`) are missing.
-*   **`500 Internal Server Error`**: If the email/walletAddress is already registered, database is unreachable, etc.
-
----
-
-## 2. User Signup (Session Cookie-backed)
-
-Creates a new user record in the PostgreSQL database using a hashed password. Sets an `HttpOnly` JWT cookie for session management.
-
-*   **Endpoint**: `/api/auth/signup`
-*   **Method**: `POST`
-*   **Content-Type**: `application/json`
-
-### Request Body Fields
-| Field | Type | Required | Description |
-| :--- | :--- | :--- | :--- |
-| `name` | `string` | **Yes** | Full name of the user (non-empty string) |
-| `email` | `string` | **Yes** | Valid unique email address |
-| `password` | `string` | **Yes** | Password (minimum 6 characters) |
-| `role` | `string` | **Yes** | User role: `CITIZEN`, `DOCTOR`, `PHARMACY`, or `REGULATOR` |
-| `walletAddress` | `string` | No | Web3 wallet address |
-
-### Request Example
-```json
-{
-  "name": "John Doe",
-  "email": "john.doe@gmail.com",
-  "password": "securepassword123",
-  "role": "CITIZEN",
-  "walletAddress": "0x1234567890123456789012345678901234567890"
-}
-```
-
-### Success Response (`201 Created`)
-*   **Headers**: Sets `Set-Cookie: token=<JWT_TOKEN>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800`
-```json
-{
-  "message": "User registered successfully",
-  "user": {
-    "name": "John Doe",
-    "email": "john.doe@gmail.com",
-    "role": "CITIZEN",
-    "walletAddress": "0x1234567890123456789012345678901234567890",
-    "id": "e49c7ad1-1bc3-4876-b6b3-6780c10a30b4",
-    "createdAt": "2026-06-11T09:20:00.000Z"
-  }
-}
-```
-
-### Error Responses
-*   **`400 Bad Request`**: If fields are missing/invalid, password is under 6 characters, role is invalid, or email is already registered.
-*   **`500 Internal Server Error`**: For other internal processing failures.
-
----
-
-## 3. User Login
-
-Authenticates an existing user against the PostgreSQL database using their email and password. On success, issues a signed session JWT in an `HttpOnly` cookie.
-
-*   **Endpoint**: `/api/auth/login`
-*   **Method**: `POST`
-*   **Content-Type**: `application/json`
-
-### Request Body Fields
-| Field | Type | Required | Description |
-| :--- | :--- | :--- | :--- |
-| `email` | `string` | **Yes** | Registered email address |
-| `password` | `string` | **Yes** | User password |
-
-### Request Example
-```json
-{
-  "email": "john.doe@gmail.com",
-  "password": "securepassword123"
-}
-```
-
-### Success Response (`200 OK`)
-*   **Headers**: Sets `Set-Cookie: token=<JWT_TOKEN>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800`
-```json
-{
-  "message": "Logged in successfully",
-  "user": {
-    "id": "e49c7ad1-1bc3-4876-b6b3-6780c10a30b4",
-    "name": "John Doe",
-    "email": "john.doe@gmail.com",
-    "role": "CITIZEN",
-    "walletAddress": "0x1234567890123456789012345678901234567890",
-    "createdAt": "2026-06-11T09:20:00.000Z"
-  }
-}
-```
-
-### Error Responses
-*   **`400 Bad Request`**: If `email` or `password` parameter is missing.
-*   **`401 Unauthorized`**: If the email is not found or the password is incorrect.
-*   **`500 Internal Server Error`**: For unexpected server-side errors.
-
----
-
-## 4. Current User Session Details
-
-Fetches the details of the currently authenticated user session. Requires a valid session token inside the `token` cookie.
-
-*   **Endpoint**: `/api/auth/me`
-*   **Method**: `GET`
-*   **Cookies**: Requires `token=<JWT_TOKEN>`
-
-### Success Response (`200 OK`)
-```json
-{
-  "authenticated": true,
-  "user": {
-    "id": "e49c7ad1-1bc3-4876-b6b3-6780c10a30b4",
-    "name": "John Doe",
-    "email": "john.doe@gmail.com",
-    "role": "CITIZEN",
-    "walletAddress": "0x1234567890123456789012345678901234567890",
-    "createdAt": "2026-06-11T09:20:00.000Z"
-  }
-}
-```
-
-### Error Responses
-*   **`401 Unauthorized`**: If the `token` cookie is missing, invalid, or has expired.
-*   **`500 Internal Server Error`**: For unexpected server-side errors.
-
----
-
-## 5. User Logout
-
-Terminates the current user session by clearing the `token` cookie.
-
-*   **Endpoint**: `/api/auth/logout`
-*   **Method**: `POST`
-
-### Success Response (`200 OK`)
-*   **Headers**: Clears cookie `token` (`Max-Age=0`, expired date).
-```json
-{
-  "message": "Logged out successfully"
-}
-```
-
-### Error Responses
-*   **`500 Internal Server Error`**: For unexpected server-side errors.
-
----
-
-## 6. Create Prescription
+## 1. Create Prescription
 
 Creates a new prescription record transactionally with its itemized medicines. This endpoint requires an active session cookie. It automatically identifies the prescribing doctor from the authenticated session (validating that the user has the `DOCTOR` role) and verifies that the recipient (`patientId`) has the `CITIZEN` role.
 
@@ -428,4 +235,254 @@ Updates a prescription's status, transaction hash, or links it to a pharmacy upo
 ### Error Responses
 *   **`400 Bad Request`**: If the provided `pharmacyId` does not exist or does not belong to a user with the `PHARMACY` role.
 *   **`404 Not Found`**: If the prescription ID does not exist.
+
+---
+
+## 10. Dashboard Analytics
+
+Fetches aggregated statistics and analytics suited for the user's role. Supported for `REGULATOR` (Government) and `PHARMACY` roles.
+
+*   **Endpoint**: `/api/analytics`
+*   **Method**: `GET`
+*   **Cookies**: Requires `token=<JWT_TOKEN>`
+*   **Query Parameters**:
+    * `year` (optional): The calendar year for monthly sales data (defaults to the current year).
+
+### Success Response (`200 OK`)
+
+#### Response for `REGULATOR` (Government Role)
+```json
+{
+  "success": true,
+  "role": "REGULATOR",
+  "data": {
+    "summary": {
+      "totalNationalRevenue": 1540.50,
+      "totalNationalItemsSold": 120,
+      "totalNationalStockRemaining": 450
+    },
+    "salesByMedicine": [
+      {
+        "medicineId": "cmqarsq0q00007cqqbh3h9i0x",
+        "medicineName": "Paracetamol",
+        "unit": "mg",
+        "totalQuantity": 80,
+        "totalRevenue": 800.00
+      }
+    ],
+    "monthlySales": [
+      { "month": "Jan", "quantity": 10, "revenue": 100 },
+      { "month": "Feb", "quantity": 15, "revenue": 150 },
+      ...
+    ],
+    "bannedSalesAlerts": [
+      {
+        "id": "alert-uuid",
+        "medicineName": "Banned Medicine Name",
+        "quantityDispensed": 5,
+        "pharmacyName": "Suspect Pharmacy Ltd",
+        "pharmacyEmail": "pharmacy@suspect.demo",
+        "dispensedAt": "2026-06-14T09:47:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+#### Response for `PHARMACY` Role
+```json
+{
+  "success": true,
+  "role": "PHARMACY",
+  "data": {
+    "summary": {
+      "totalRevenue": 450.00,
+      "totalItemsSold": 35,
+      "totalStockRemaining": 150
+    },
+    "inventory": [
+      {
+        "medicineId": "cmqarsq0q00007cqqbh3h9i0x",
+        "medicineName": "Paracetamol",
+        "unit": "mg",
+        "stockRemaining": 100,
+        "price": 10.00,
+        "soldQuantity": 30,
+        "totalSales": 300.00
+      }
+    ],
+    "monthlySales": [
+      { "month": "Jan", "quantity": 5, "revenue": 50 },
+      ...
+    ],
+    "lowStockAlerts": [
+      {
+        "medicineId": "low-stock-uuid",
+        "medicineName": "Amoxicillin",
+        "unit": "mg",
+        "stockRemaining": 5,
+        "price": 15.00,
+        "soldQuantity": 2,
+        "totalSales": 30.00
+      }
+    ]
+  }
+}
+```
+
+### Error Responses
+*   **`401 Unauthorized`**: If no active session JWT token is found.
+*   **`403 Forbidden`**: If the logged-in user role is not `REGULATOR` or `PHARMACY`.
+*   **`500 Internal Server Error`**: For database or query errors.
+
+---
+
+## 11. Medicine & Regulation Management
+
+Endpoints to fetch registered medicines, register new medicines, and update active regulations (banning/limiting daily dosages).
+
+### 11.1 Fetch All Medicines
+Retrieves a list of all registered medicines along with their regulation files.
+
+*   **Endpoint**: `/api/medicines`
+*   **Method**: `GET`
+*   **Cookies**: Requires `token=<JWT_TOKEN>`
+*   **Query Parameters**:
+    * `includeBanned` (optional, boolean): Set to `false` to filter out banned medicines. Defaults to `true`.
+
+#### Success Response (`200 OK`)
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "demo-medicine-id-1",
+      "name": "Paracetamol",
+      "unit": "mg",
+      "maxDosePerDay": 1000,
+      "maxDurationDays": 10,
+      "createdAt": "2026-06-14T09:47:00.000Z",
+      "MedicineRegulation": {
+        "id": "regulation-uuid-1",
+        "medicineId": "demo-medicine-id-1",
+        "scheduleClass": "UNCLASSIFIED",
+        "isBanned": false,
+        "maxDailyDosage": null,
+        "maxDurationDays": null,
+        "regulatorId": "regulator-uuid",
+        "updatedAt": "2026-06-14T09:47:00.000Z"
+      }
+    }
+  ],
+  "total": 1
+}
+```
+
+---
+
+### 11.2 Register Medicine (Government Only)
+Registers a new medicine in the system and establishes its initial regulations.
+
+*   **Endpoint**: `/api/medicines`
+*   **Method**: `POST`
+*   **Content-Type**: `application/json`
+*   **Cookies**: Requires `token=<JWT_TOKEN>` (Must have `REGULATOR` role)
+
+#### Request Body Fields
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `name` | `string` | **Yes** | Unique name of the medicine |
+| `maxDosePerDay` | `number` | **Yes** | Maximum allowed daily dose quantity |
+| `maxDurationDays` | `number` | **Yes** | Maximum number of days allowed for prescription |
+| `unit` | `string` | No | Dose unit (e.g. `mg`, `ml`). Defaults to `mg`. |
+| `scheduleClass` | `string` | No | Schedule classification (e.g. `Schedule H`). Defaults to `UNCLASSIFIED`. |
+| `isBanned` | `boolean` | No | Flag indicating if this medicine is banned. Defaults to `false`. |
+| `maxDailyDosage` | `number` | No | Numeric regulation threshold for maximum daily dose |
+| `regulationMaxDurationDays` | `number` | No | Numeric regulation threshold for maximum duration |
+
+#### Request Example
+```json
+{
+  "name": "Codeine Phosphate",
+  "maxDosePerDay": 120,
+  "maxDurationDays": 5,
+  "unit": "mg",
+  "scheduleClass": "Schedule H1",
+  "isBanned": false,
+  "maxDailyDosage": 60.0
+}
+```
+
+#### Success Response (`201 Created`)
+```json
+{
+  "success": true,
+  "data": {
+    "id": "new-medicine-uuid",
+    "name": "Codeine Phosphate",
+    "unit": "mg",
+    ...
+    "MedicineRegulation": {
+      "id": "new-regulation-uuid",
+      "scheduleClass": "Schedule H1",
+      "isBanned": false,
+      ...
+    }
+  }
+}
+```
+
+#### Error Responses
+*   **`403 Forbidden`**: If the logged-in user is not a `REGULATOR`.
+*   **`400 Bad Request`**: If required fields are missing or if the medicine name is already registered.
+
+---
+
+### 11.3 Update Medicine and Regulations (Government Only)
+Updates the details of a registered medicine and/or its corresponding active regulations.
+
+*   **Endpoint**: `/api/medicines/[id]`
+*   **Method**: `PATCH`
+*   **Content-Type**: `application/json`
+*   **Cookies**: Requires `token=<JWT_TOKEN>` (Must have `REGULATOR` role)
+
+#### Request Body Fields (All Optional)
+* `name`: string
+* `unit`: string
+* `maxDosePerDay`: number
+* `maxDurationDays`: number
+* `scheduleClass`: string
+* `isBanned`: boolean
+* `maxDailyDosage`: number
+* `regulationMaxDurationDays`: number
+
+#### Request Example (Banning a medicine)
+```json
+{
+  "isBanned": true
+}
+```
+
+#### Success Response (`200 OK`)
+```json
+{
+  "success": true,
+  "data": {
+    "id": "medicine-uuid",
+    "name": "Banned Medicine Name",
+    ...
+    "MedicineRegulation": {
+      "id": "regulation-uuid",
+      "isBanned": true,
+      "updatedAt": "2026-06-14T10:48:00.000Z"
+    }
+  }
+}
+```
+
+#### Error Responses
+*   **`403 Forbidden`**: If the logged-in user is not a `REGULATOR`.
+*   **`404 Not Found`**: If the medicine ID does not exist.
+
+
 
